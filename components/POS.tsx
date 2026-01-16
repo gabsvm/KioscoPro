@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText } from 'lucide-react';
-import { Product, PaymentMethod, CartItem, Sale, InvoiceData } from '../types';
+import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile } from '../types';
 import InvoiceModal from './InvoiceModal';
 
 interface POSProps {
   products: Product[];
   paymentMethods: PaymentMethod[];
   onCompleteSale: (items: CartItem[], methodId: string, invoiceData?: InvoiceData) => Sale | undefined;
+  storeProfile: StoreProfile;
 }
 
-const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale }) => {
+const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, storeProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -312,7 +313,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale }) =
 
       {/* Invoice Modal */}
       {lastSale && lastSale.invoice && (
-        <InvoiceModal sale={lastSale} onClose={() => setLastSale(null)} />
+        <InvoiceModal sale={lastSale} storeProfile={storeProfile} onClose={() => setLastSale(null)} />
       )}
     </>
   );

@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import { Store, Save, Check } from 'lucide-react';
+import { StoreProfile } from '../types';
+
+interface SettingsProps {
+  storeProfile: StoreProfile;
+  onUpdateProfile: (profile: StoreProfile) => void;
+}
+
+const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile }) => {
+  const [formData, setFormData] = useState<StoreProfile>(storeProfile);
+  const [saved, setSaved] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setSaved(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateProfile(formData);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="bg-slate-900 p-2 rounded-lg text-white">
+          <Store size={24} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Configuración del Local</h2>
+          <p className="text-slate-500">Estos datos aparecerán en los encabezados de tus facturas y comprobantes.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <div className="col-span-full">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Datos Comerciales</h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de Fantasía</label>
+            <input 
+              type="text" 
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="Ej. KIOSCO EL PASO"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Titular / Razón Social</label>
+            <input 
+              type="text" 
+              name="owner"
+              value={formData.owner}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="Ej. JUAN PEREZ"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Dirección Comercial</label>
+            <input 
+              type="text" 
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad / Localidad</label>
+            <input 
+              type="text" 
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+            />
+          </div>
+
+          <div className="col-span-full mt-4">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Datos Fiscales (AFIP)</h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CUIT</label>
+            <input 
+              type="text" 
+              name="cuit"
+              value={formData.cuit}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="20-xxxxxxxx-x"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Ingresos Brutos (IIBB)</label>
+            <input 
+              type="text" 
+              name="iibb"
+              value={formData.iibb}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Inicio de Actividades</label>
+            <input 
+              type="text" 
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="dd/mm/aaaa"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Condición IVA</label>
+            <select 
+              name="ivaCondition"
+              value={formData.ivaCondition}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+            >
+              <option value="Monotributo">Monotributo</option>
+              <option value="Responsable Inscripto">Responsable Inscripto</option>
+              <option value="Exento">Exento</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div className="bg-slate-50 px-6 py-4 flex items-center justify-end border-t border-slate-200">
+          <button 
+            type="submit"
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white transition-all ${saved ? 'bg-emerald-500' : 'bg-brand-600 hover:bg-brand-700'}`}
+          >
+            {saved ? <><Check size={20} /> Guardado</> : <><Save size={20} /> Guardar Cambios</>}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default Settings;

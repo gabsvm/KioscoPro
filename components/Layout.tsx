@@ -35,6 +35,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
     setLogoutConfirmType(null);
   };
 
+  const handleSettingsClick = () => {
+    setView('SETTINGS');
+    setIsUserMenuOpen(false);
+  };
+
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       {/* Desktop Sidebar */}
@@ -93,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                 <Store className="text-white" size={18} />
              </div>
              <h2 className="text-xl font-bold text-slate-800">
-               {navItems.find((i) => i.id === currentView)?.label}
+               {currentView === 'SETTINGS' ? 'Configuración' : navItems.find((i) => i.id === currentView)?.label}
              </h2>
           </div>
           
@@ -140,7 +145,10 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                   </div>
 
                   <div className="p-2 space-y-1">
-                    <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-sm font-medium">
+                    <button 
+                      onClick={handleSettingsClick}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-sm font-medium"
+                    >
                       <Settings size={18} />
                       Configuración de App
                     </button>

@@ -77,7 +77,18 @@ export interface Expense {
   type: 'PURCHASE' | 'PAYMENT'; // Purchase increases debt, Payment decreases it
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY';
+export interface StoreProfile {
+  name: string;
+  owner: string;
+  address: string;
+  city: string;
+  cuit: string;
+  iibb: string;
+  startDate: string;
+  ivaCondition: string;
+}
+
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS';
 
 export interface DateRange {
   start: number; // Unix timestamp

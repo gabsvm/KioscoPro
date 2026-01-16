@@ -7,8 +7,9 @@ import Finance from './components/Finance';
 import Reports from './components/Reports';
 import Suppliers from './components/Suppliers';
 import SalesHistory from './components/SalesHistory';
+import Settings from './components/Settings';
 import Auth from './components/Auth';
-import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData } from './types';
+import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { auth } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
@@ -73,6 +74,17 @@ const initialPaymentMethods: PaymentMethod[] = [
   { id: 'pm_2', name: 'MercadoPago', type: 'DIGITAL', balance: 0 },
 ];
 
+const initialStoreProfile: StoreProfile = {
+  name: "MI KIOSCO",
+  owner: "DUEÑO RESPONSABLE",
+  address: "CALLE FALSA 123",
+  city: "CIUDAD",
+  cuit: "20-00000000-0",
+  iibb: "000-000000",
+  startDate: "01/01/2024",
+  ivaCondition: "Consumidor Final"
+};
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
@@ -80,7 +92,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('DASHBOARD');
 
   // Keys definition for migration
-  const STORAGE_KEYS = ['products', 'sales', 'paymentMethods', 'transfers', 'suppliers', 'expenses', 'lowStockThreshold'];
+  const STORAGE_KEYS = ['products', 'sales', 'paymentMethods', 'transfers', 'suppliers', 'expenses', 'lowStockThreshold', 'storeProfile'];
 
   // Auth Listener & Migration Logic
   useEffect(() => {
@@ -124,6 +136,7 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useLocalStorage<Supplier[]>('suppliers', [], userId, isGuestMode);
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', [], userId, isGuestMode);
   const [lowStockThreshold, setLowStockThreshold] = useLocalStorage<number>('lowStockThreshold', 5, userId, isGuestMode);
+  const [storeProfile, setStoreProfile] = useLocalStorage<StoreProfile>('storeProfile', initialStoreProfile, userId, isGuestMode);
 
   // --- Actions ---
 
@@ -284,9 +297,9 @@ const App: React.FC = () => {
       case 'DASHBOARD':
         return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} />;
       case 'POS':
-        return <POS products={products} paymentMethods={paymentMethods} onCompleteSale={handleCompleteSale} />;
+        return <POS products={products} paymentMethods={paymentMethods} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
       case 'HISTORY':
-        return <SalesHistory sales={sales} />;
+        return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY':
         return (
           <Inventory 
@@ -304,6 +317,8 @@ const App: React.FC = () => {
         return <Finance paymentMethods={paymentMethods} transfers={transfers} onAddMethod={handleAddMethod} onTransfer={handleTransfer} />;
       case 'REPORTS':
         return <Reports sales={sales} paymentMethods={paymentMethods} />;
+      case 'SETTINGS':
+        return <Settings storeProfile={storeProfile} onUpdateProfile={setStoreProfile} />;
       default:
         return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} />;
     }

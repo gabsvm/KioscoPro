@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Sale, InvoiceData } from '../types';
+import { Sale, InvoiceData, StoreProfile } from '../types';
 import { Search, Printer, FileText, ChevronDown } from 'lucide-react';
 import InvoiceModal from './InvoiceModal';
 
 interface SalesHistoryProps {
   sales: Sale[];
+  storeProfile: StoreProfile;
 }
 
-const SalesHistory: React.FC<SalesHistoryProps> = ({ sales }) => {
+const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, storeProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -143,7 +144,7 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales }) => {
 
       {/* Invoice Modal */}
       {selectedSale && (
-        <InvoiceModal sale={selectedSale} onClose={() => setSelectedSale(null)} />
+        <InvoiceModal sale={selectedSale} storeProfile={storeProfile} onClose={() => setSelectedSale(null)} />
       )}
     </div>
   );
