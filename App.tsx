@@ -197,6 +197,18 @@ const App: React.FC = () => {
     setPaymentMethods([...paymentMethods, newMethod]);
   };
 
+  const handleUpdateMethod = (id: string, name: string, type: PaymentMethod['type']) => {
+    if (userRole !== 'ADMIN') return;
+    setPaymentMethods(prev => prev.map(pm => 
+      pm.id === id ? { ...pm, name, type } : pm
+    ));
+  };
+
+  const handleDeleteMethod = (id: string) => {
+    if (userRole !== 'ADMIN') return;
+    setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
+  };
+
   const handleTransfer = (fromId: string, toId: string, amount: number, note: string) => {
     if (userRole !== 'ADMIN') return;
     const fromMethod = paymentMethods.find(m => m.id === fromId);
@@ -339,7 +351,16 @@ const App: React.FC = () => {
       case 'SUPPLIERS':
         return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} /> : null;
       case 'FINANCE':
-        return userRole === 'ADMIN' ? <Finance paymentMethods={paymentMethods} transfers={transfers} onAddMethod={handleAddMethod} onTransfer={handleTransfer} /> : null;
+        return userRole === 'ADMIN' ? (
+          <Finance 
+            paymentMethods={paymentMethods} 
+            transfers={transfers} 
+            onAddMethod={handleAddMethod} 
+            onUpdateMethod={handleUpdateMethod}
+            onDeleteMethod={handleDeleteMethod}
+            onTransfer={handleTransfer} 
+          />
+        ) : null;
       case 'REPORTS':
         return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
       case 'SETTINGS':
