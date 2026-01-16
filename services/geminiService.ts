@@ -3,9 +3,11 @@ import { Sale, Product, PaymentMethod } from '../types';
 
 // Initialize Gemini Client
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Safe access to process.env to avoid browser crashes
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+  
   if (!apiKey) {
-    console.error("API Key not found in environment variables");
+    console.warn("API Key not found. AI features will be disabled.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -17,7 +19,7 @@ export const analyzeBusinessData = async (
   paymentMethods: PaymentMethod[]
 ): Promise<string> => {
   const client = getClient();
-  if (!client) return "Error: No API Key configured.";
+  if (!client) return "Error: API Key no configurada. Configura la variable de entorno API_KEY.";
 
   // Prepare a summary of the data to keep tokens low
   const totalRevenue = sales.reduce((acc, s) => acc + s.totalAmount, 0);
@@ -51,7 +53,7 @@ export const analyzeBusinessData = async (
 
   try {
     const response = await client.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash-exp', // Updated to a currently available model for this SDK version if needed, or stick to flash
       contents: prompt,
     });
     return response.text || "No se pudo generar el análisis.";
