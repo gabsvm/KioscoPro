@@ -271,7 +271,13 @@ const App: React.FC = () => {
   // --- Role Switching Logic ---
   const toggleRole = () => {
     if (userRole === 'ADMIN') {
-      // Admin wants to become Seller: Just switch
+      // Admin wants to become Seller: Check if PIN exists first
+      if (!storeProfile.sellerPin || storeProfile.sellerPin.trim().length < 4) {
+        alert("⚠️ Configuración Incompleta\n\nDebes definir un PIN de seguridad de 4 dígitos en la sección 'Configuración' antes de activar el Modo Vendedor.");
+        setView('SETTINGS');
+        return;
+      }
+      
       setUserRole('SELLER');
       setView('POS'); // Default view for seller
     } else {
@@ -284,7 +290,10 @@ const App: React.FC = () => {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === storeProfile.sellerPin) {
+    // Allow unlock if PIN matches OR if no PIN was set (rescue mode with 0000)
+    const isCorrect = pinInput === storeProfile.sellerPin || (!storeProfile.sellerPin && pinInput === '0000');
+    
+    if (isCorrect) {
       setUserRole('ADMIN');
       setShowPinModal(false);
       setView('DASHBOARD');
@@ -365,7 +374,11 @@ const App: React.FC = () => {
              </div>
              <div className="p-8">
                <h3 className="text-xl font-bold text-center text-slate-800 mb-2">Modo Vendedor Activo</h3>
-               <p className="text-center text-slate-500 mb-6 text-sm">Ingresa el PIN maestro para desbloquear el acceso de Administrador.</p>
+               <p className="text-center text-slate-500 mb-6 text-sm">
+                 {(!storeProfile.sellerPin) 
+                   ? "⚠️ No hay PIN configurado. Ingresa '0000' para desbloquear." 
+                   : "Ingresa el PIN maestro para desbloquear el acceso de Administrador."}
+               </p>
                
                <form onSubmit={handlePinSubmit}>
                  <div className="flex justify-center mb-6">
