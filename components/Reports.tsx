@@ -46,15 +46,30 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
     });
   };
 
-  // Aggregate Data for Charts
+  // Aggregate Data for Charts - Supports Split Payments
   const salesByPaymentMethod = useMemo(() => {
-    const data = paymentMethods.map(pm => {
-      const total = filteredSales
-        .filter(s => s.paymentMethodId === pm.id)
-        .reduce((acc, s) => acc + s.totalAmount, 0);
-      return { name: pm.name, value: total };
-    }).filter(d => d.value > 0);
-    return data;
+    // Map to store total per method
+    const totals = new Map<string, number>();
+
+    filteredSales.forEach(sale => {
+      if (sale.payments && sale.payments.length > 0) {
+        // Handle split payments
+        sale.payments.forEach(p => {
+           const current = totals.get(p.methodId) || 0;
+           totals.set(p.methodId, current + p.amount);
+        });
+      } else {
+        // Fallback for legacy sales (single method)
+        const current = totals.get(sale.paymentMethodId) || 0;
+        totals.set(sale.paymentMethodId, current + sale.totalAmount);
+      }
+    });
+
+    return paymentMethods.map(pm => ({
+      name: pm.name,
+      value: totals.get(pm.id) || 0
+    })).filter(d => d.value > 0);
+
   }, [filteredSales, paymentMethods]);
 
   const topProducts = useMemo(() => {
@@ -174,7 +189,7 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
               <tr>
                 <th className="px-6 py-3">ID Venta</th>
                 <th className="px-6 py-3">Fecha</th>
-                <th className="px-6 py-3">Método</th>
+                <th className="px-6 py-3">Método(s)</th>
                 <th className="px-6 py-3">Items</th>
                 <th className="px-6 py-3 text-right">Total</th>
               </tr>
@@ -185,9 +200,19 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                    <td className="px-6 py-3 font-mono text-xs text-slate-400">#{sale.id.slice(-6)}</td>
                    <td className="px-6 py-3 text-slate-600">{new Date(sale.timestamp).toLocaleString()}</td>
                    <td className="px-6 py-3">
-                     <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">
-                       {sale.paymentMethodName}
-                     </span>
+                     {sale.payments && sale.payments.length > 1 ? (
+                        <div className="flex flex-col gap-1">
+                          {sale.payments.map((p, idx) => (
+                             <span key={idx} className="bg-indigo-50 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 border border-indigo-100 w-fit">
+                               {p.methodName}: ${p.amount}
+                             </span>
+                          ))}
+                        </div>
+                     ) : (
+                        <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">
+                          {sale.paymentMethodName}
+                        </span>
+                     )}
                    </td>
                    <td className="px-6 py-3 text-slate-600 max-w-xs truncate">
                      {sale.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')}

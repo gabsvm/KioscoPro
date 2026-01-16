@@ -109,9 +109,20 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, storeProfile }) => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-600 border border-slate-200">
-                      {sale.paymentMethodName}
-                    </span>
+                    {sale.payments && sale.payments.length > 1 ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-bold text-slate-700">Mixto:</span>
+                          {sale.payments.map((p, i) => (
+                             <span key={i} className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded border border-slate-200 whitespace-nowrap">
+                               {p.methodName}: ${p.amount}
+                             </span>
+                          ))}
+                        </div>
+                    ) : (
+                        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-600 border border-slate-200">
+                           {sale.paymentMethodName}
+                        </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right font-bold text-slate-800 text-base">
                     ${sale.totalAmount.toFixed(2)}

@@ -9,7 +9,7 @@ import Suppliers from './components/Suppliers';
 import SalesHistory from './components/SalesHistory';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
-import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole } from './types';
+import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { auth } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
@@ -144,11 +144,19 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCompleteSale = (cartItems: CartItem[], methodId: string, invoiceData?: InvoiceData): Sale | undefined => {
-    const method = paymentMethods.find(p => p.id === methodId);
-    if (!method) return;
-
+  // Modified to handle Split Payments
+  const handleCompleteSale = (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData): Sale | undefined => {
+    
+    // Validate that total payment matches or exceeds total amount
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+    const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+
+    // Allow a small margin for float errors, but usually should match
+    if (totalPaid < totalAmount - 0.01) {
+      alert("El pago total es menor al monto de la venta.");
+      return;
+    }
+
     const totalCost = cartItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
     
     const saleItems = cartItems.map(item => ({
@@ -160,19 +168,24 @@ const App: React.FC = () => {
       subtotal: item.sellingPrice * item.quantity
     }));
 
+    // Primary method for backward compatibility (use the one with highest amount or first)
+    const primaryPayment = payments.sort((a,b) => b.amount - a.amount)[0];
+
     const newSale: Sale = {
       id: uuidv4(),
       timestamp: Date.now(),
       items: saleItems,
       totalAmount,
       totalProfit: totalAmount - totalCost,
-      paymentMethodId: methodId,
-      paymentMethodName: method.name,
+      paymentMethodId: primaryPayment.methodId,
+      paymentMethodName: payments.length > 1 ? 'Mixto/Multiple' : primaryPayment.methodName,
+      payments: payments, // Store full breakdown
       invoice: invoiceData
     };
 
     setSales([...sales, newSale]);
 
+    // Update Stock
     setProducts(prevProducts => prevProducts.map(p => {
       const soldItem = cartItems.find(i => i.id === p.id);
       if (soldItem) {
@@ -181,9 +194,11 @@ const App: React.FC = () => {
       return p;
     }));
 
+    // Update Balances for MULTIPLE methods
     setPaymentMethods(prevMethods => prevMethods.map(pm => {
-      if (pm.id === methodId) {
-        return { ...pm, balance: pm.balance + totalAmount };
+      const paymentInThisMethod = payments.find(p => p.methodId === pm.id);
+      if (paymentInThisMethod) {
+        return { ...pm, balance: pm.balance + paymentInThisMethod.amount };
       }
       return pm;
     }));

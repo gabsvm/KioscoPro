@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText } from 'lucide-react';
-import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split } from 'lucide-react';
+import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail } from '../types';
 import InvoiceModal from './InvoiceModal';
 
 interface POSProps {
   products: Product[];
   paymentMethods: PaymentMethod[];
-  onCompleteSale: (items: CartItem[], methodId: string, invoiceData?: InvoiceData) => Sale | undefined;
+  onCompleteSale: (items: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData) => Sale | undefined;
   storeProfile: StoreProfile;
 }
 
@@ -15,9 +15,13 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showCheckout, setShowCheckout] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<string>(paymentMethods[0]?.id || '');
   const [mobileView, setMobileView] = useState<'CATALOG' | 'CART'>('CATALOG');
   
+  // Payment State
+  const [selectedMethod, setSelectedMethod] = useState<string>(paymentMethods[0]?.id || '');
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({}); // methodId -> amount string
+
   // Invoice State
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
@@ -27,6 +31,21 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
   const [clientAddress, setClientAddress] = useState('');
   const [invoiceType, setInvoiceType] = useState<'A' | 'B' | 'C'>('B');
   const [conditionIva, setConditionIva] = useState<InvoiceData['conditionIva']>('Consumidor Final');
+
+  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0), [cart]);
+
+  // Initialize split amounts when opening checkout
+  useEffect(() => {
+    if (showCheckout && isSplitPayment) {
+      // Don't auto-fill, user enters manually
+    }
+  }, [showCheckout, isSplitPayment]);
+
+  const totalSplitEntered = useMemo(() => {
+    return (Object.values(splitAmounts) as string[]).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
+  }, [splitAmounts]);
+
+  const remainingTotal = Math.max(0, cartTotal - totalSplitEntered);
 
   // Categories
   const categories = useMemo(() => {
@@ -69,12 +88,51 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
     }));
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
     
+    // Validate Split Payment
+    let finalPayments: PaymentDetail[] = [];
+
+    if (isSplitPayment) {
+      if (totalSplitEntered < cartTotal - 0.01) { // small margin for float errors
+        alert(`Falta cubrir $${remainingTotal.toFixed(2)} del total.`);
+        return;
+      }
+      
+      // Build payments array
+      (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
+        const amount = parseFloat(amountStr);
+        if (amount > 0) {
+          const method = paymentMethods.find(m => m.id === methodId);
+          if (method) {
+            finalPayments.push({
+              methodId,
+              methodName: method.name,
+              amount
+            });
+          }
+        }
+      });
+      
+      if (finalPayments.length === 0) {
+         alert("Ingresa al menos un monto de pago.");
+         return;
+      }
+
+    } else {
+       // Single payment mode
+       const method = paymentMethods.find(m => m.id === selectedMethod);
+       if (!method) return;
+       finalPayments.push({
+         methodId: selectedMethod,
+         methodName: method.name,
+         amount: cartTotal
+       });
+    }
+
     let invoiceData: InvoiceData | undefined = undefined;
 
     if (showInvoiceForm) {
@@ -90,7 +148,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
       };
     }
 
-    const sale = onCompleteSale(cart, selectedMethod, invoiceData);
+    const sale = onCompleteSale(cart, finalPayments, invoiceData);
     if (sale) {
       setLastSale(sale); // This triggers the modal
     }
@@ -102,6 +160,12 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
     setMobileView('CATALOG');
     setClientName('Consumidor Final');
     setClientCuit('');
+    setSplitAmounts({});
+    setIsSplitPayment(false);
+  };
+
+  const handleSplitAmountChange = (methodId: string, val: string) => {
+    setSplitAmounts(prev => ({ ...prev, [methodId]: val }));
   };
 
   return (
@@ -214,14 +278,94 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
                 Cobrar
               </button>
             ) : (
-              <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-200">
+              <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-200 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
+                
+                {/* Payment Method Switcher */}
+                <div className="flex p-1 bg-slate-200 rounded-lg">
+                  <button 
+                    onClick={() => setIsSplitPayment(false)}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${!isSplitPayment ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Pago Simple
+                  </button>
+                  <button 
+                    onClick={() => setIsSplitPayment(true)}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${isSplitPayment ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    <Split size={12} /> Pago Mixto
+                  </button>
+                </div>
+
+                {isSplitPayment ? (
+                  // SPLIT PAYMENT UI
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-500 uppercase">Ingresar Montos</p>
+                    {paymentMethods.map(method => (
+                      <div key={method.id} className="flex items-center gap-2">
+                         <span className="text-sm text-slate-600 w-28 truncate font-medium">{method.name}</span>
+                         <div className="flex-1 relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                            <input 
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={splitAmounts[method.id] || ''}
+                              onChange={(e) => handleSplitAmountChange(method.id, e.target.value)}
+                              className="w-full pl-5 pr-2 py-1.5 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                            />
+                         </div>
+                      </div>
+                    ))}
+                    
+                    <div className="mt-3 p-3 bg-slate-100 rounded-lg text-sm border border-slate-200">
+                      <div className="flex justify-between mb-1">
+                         <span>Ingresado:</span>
+                         <span className="font-bold">${totalSplitEntered.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-slate-200">
+                        {totalSplitEntered >= cartTotal ? (
+                          <>
+                            <span className="text-emerald-700 font-bold">Vuelto / Exceso:</span>
+                            <span className="text-emerald-700 font-bold">${(totalSplitEntered - cartTotal).toFixed(2)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-red-600 font-bold">Falta:</span>
+                            <span className="text-red-600 font-bold">${remainingTotal.toFixed(2)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // SIMPLE PAYMENT UI
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase mb-1 block">Método de Pago</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {paymentMethods.map(method => (
+                        <button
+                          key={method.id}
+                          onClick={() => setSelectedMethod(method.id)}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${
+                            selectedMethod === method.id 
+                              ? 'bg-brand-100 border-brand-500 text-brand-700' 
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {method.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Invoice Toggle */}
-                <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200 cursor-pointer" onClick={() => setShowInvoiceForm(!showInvoiceForm)}>
-                  <div className="flex items-center gap-2 text-slate-700 font-medium">
+                <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50" onClick={() => setShowInvoiceForm(!showInvoiceForm)}>
+                  <div className="flex items-center gap-2 text-slate-700 font-medium text-sm">
                     <FileText size={16} /> Generar Factura
                   </div>
-                  <div className={`w-10 h-6 rounded-full p-1 transition-colors ${showInvoiceForm ? 'bg-brand-600' : 'bg-slate-300'}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${showInvoiceForm ? 'translate-x-4' : ''}`}></div>
+                  <div className={`w-8 h-5 rounded-full p-1 transition-colors ${showInvoiceForm ? 'bg-brand-600' : 'bg-slate-300'}`}>
+                    <div className={`bg-white w-3 h-3 rounded-full shadow-sm transition-transform ${showInvoiceForm ? 'translate-x-3' : ''}`}></div>
                   </div>
                 </div>
 
@@ -239,7 +383,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
                          placeholder="CUIT Cliente" 
                          value={clientCuit}
                          onChange={e => setClientCuit(e.target.value)}
-                         className="border p-1 rounded flex-1"
+                         className="border p-1 rounded flex-1 outline-none focus:border-brand-500"
                        />
                      </div>
                      <input 
@@ -247,7 +391,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
                        placeholder="Razón Social / Nombre" 
                        value={clientName}
                        onChange={e => setClientName(e.target.value)}
-                       className="border p-1 rounded w-full"
+                       className="border p-1 rounded w-full outline-none focus:border-brand-500"
                      />
                      <select value={conditionIva} onChange={e => setConditionIva(e.target.value as any)} className="border p-1 rounded w-full">
                        <option value="Consumidor Final">Consumidor Final</option>
@@ -257,26 +401,8 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
                   </div>
                 )}
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase mb-1 block">Método de Pago</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {paymentMethods.map(method => (
-                      <button
-                        key={method.id}
-                        onClick={() => setSelectedMethod(method.id)}
-                        className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${
-                          selectedMethod === method.id 
-                            ? 'bg-brand-100 border-brand-500 text-brand-700' 
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {method.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 pt-2">
                    <button 
                      onClick={() => setShowCheckout(false)}
                      className="flex-1 bg-white border border-slate-300 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-50"

@@ -130,9 +130,20 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, storeProfile, onClose
 
             {/* Pagos */}
             <div className="mb-6 text-xs text-slate-600">
-              <div className="flex justify-between">
-                <span className="uppercase">Forma de Pago: {sale.paymentMethodName}</span>
-              </div>
+              <div className="font-bold mb-1 border-b border-slate-300 pb-1">FORMA DE PAGO:</div>
+              {sale.payments && sale.payments.length > 0 ? (
+                sale.payments.map((p, i) => (
+                   <div key={i} className="flex justify-between">
+                     <span className="uppercase">{p.methodName}</span>
+                     <span>${p.amount.toFixed(2)}</span>
+                   </div>
+                ))
+              ) : (
+                <div className="flex justify-between">
+                   <span className="uppercase">{sale.paymentMethodName}</span>
+                   <span>${totalAmount.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {/* Footer QR y CAE */}

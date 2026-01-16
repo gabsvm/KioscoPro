@@ -39,14 +39,21 @@ export interface InvoiceData {
   caeVto?: string; // Simulated
 }
 
+export interface PaymentDetail {
+  methodId: string;
+  methodName: string;
+  amount: number;
+}
+
 export interface Sale {
   id: string;
   timestamp: number; // Unix timestamp
   items: SaleItem[];
   totalAmount: number;
   totalProfit: number;
-  paymentMethodId: string;
-  paymentMethodName: string;
+  paymentMethodId: string; // Deprecated but kept for backward compatibility (primary method)
+  paymentMethodName: string; // Deprecated but kept for backward compatibility
+  payments?: PaymentDetail[]; // New: Supports split payments
   invoice?: InvoiceData;
 }
 
