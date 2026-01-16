@@ -3,8 +3,8 @@ import { Sale, Product, PaymentMethod } from '../types';
 
 // Initialize Gemini Client
 const getClient = () => {
-  // Safe access to process.env to avoid browser crashes
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : '';
+  // Vite will replace process.env.API_KEY with the actual string value during build
+  const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
     console.warn("API Key not found. AI features will be disabled.");
@@ -53,7 +53,7 @@ export const analyzeBusinessData = async (
 
   try {
     const response = await client.models.generateContent({
-      model: 'gemini-2.0-flash-exp', // Updated to a currently available model for this SDK version if needed, or stick to flash
+      model: 'gemini-2.0-flash-exp',
       contents: prompt,
     });
     return response.text || "No se pudo generar el análisis.";
