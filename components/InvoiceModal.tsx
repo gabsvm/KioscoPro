@@ -16,135 +16,160 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, onClose }) => {
     window.print();
   };
 
+  // Simulación de datos del emisor (Tu Kiosco)
+  const sellerInfo = {
+    name: "KIOSCO PRO MANAGER",
+    owner: "GABRIEL S. VENDEDOR",
+    address: "Av. Corrientes 1234",
+    city: "CABA",
+    cuit: "20-12345678-9",
+    iibb: "20-12345678-9",
+    startDate: "01/03/2023",
+    ivaCondition: "Monotributo"
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl relative animate-in fade-in zoom-in-95 my-8">
+      <div className="bg-white shadow-2xl w-full max-w-[480px] relative animate-in fade-in zoom-in-95 my-8">
         {/* Actions Bar (No print) */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 print:hidden">
-          <h3 className="font-bold text-slate-700">Factura Generada</h3>
+        <div className="flex justify-between items-center p-4 border-b border-slate-200 print:hidden bg-slate-50 rounded-t-lg">
+          <h3 className="font-bold text-slate-700">Vista Previa</h3>
           <div className="flex gap-2">
             <button 
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium text-sm"
             >
-              <Printer size={18} /> Imprimir
+              <Printer size={16} /> Imprimir
             </button>
-            <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+            <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg">
               <X size={20} />
             </button>
           </div>
         </div>
 
-        {/* Invoice Content (Printable) */}
-        <div id="invoice-content" className="p-8 bg-white text-xs md:text-sm font-mono md:font-sans">
-          {/* Header */}
-          <div className="border border-black relative mb-4">
-            {/* Type Box */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-white border-b border-l border-r border-black w-12 h-12 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold leading-none">{invoice.type}</span>
-              <span className="text-[8px] font-bold">COD. 0{invoice.type === 'A' ? '1' : invoice.type === 'B' ? '6' : '1'}</span>
+        {/* Invoice Content (Printable) - Estilo AFIP Factura C */}
+        <div id="invoice-content" className="bg-white p-6 text-black font-sans leading-tight">
+          
+          {/* Header Emisor */}
+          <div className="text-center mb-4">
+            <h1 className="text-xl font-bold uppercase">{sellerInfo.name}</h1>
+            <div className="text-sm font-bold mt-1">de {sellerInfo.owner}</div>
+            <div className="text-sm mt-1">{sellerInfo.address}</div>
+            <div className="text-sm uppercase">{sellerInfo.city}</div>
+            <div className="text-sm mt-1">CUIT Nro: {sellerInfo.cuit}</div>
+            <div className="text-sm">Ing. Brutos: {sellerInfo.iibb}</div>
+            <div className="text-sm">Inicio Actividades: {sellerInfo.startDate}</div>
+            <div className="text-sm">Condición IVA: {sellerInfo.ivaCondition}</div>
+          </div>
+
+          <div className="border-b-2 border-black my-2"></div>
+
+          {/* Tipo de Factura y Numero */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold">FACTURA (cod.011) "C"</h2>
+            </div>
+            <div className="text-right mt-1">
+               <div className="text-sm font-medium">fac-{invoice.type}-0001-{invoice.number}</div>
+               <div className="text-sm">Fecha: {new Date(sale.timestamp).toLocaleDateString('es-AR')}</div>
+            </div>
+          </div>
+
+          <div className="border-b-2 border-black my-2"></div>
+
+          {/* Datos del Cliente */}
+          <div className="mb-4 text-sm">
+            <div className="mb-1"><span className="capitalize">{invoice.clientName}</span></div>
+            <div className="mb-1">CUIT Nro: {invoice.clientCuit || '0'}</div>
+            <div className="mb-1">Cond.IVA: {invoice.conditionIva === 'Consumidor Final' ? 'Final' : invoice.conditionIva}</div>
+            <div className="mt-2 uppercase">{invoice.clientAddress || 'MOSTRADOR'}</div>
+          </div>
+
+          <div className="border-b-2 border-black my-2"></div>
+
+          {/* Tabla de Items */}
+          <div className="mb-4">
+            {/* Headers */}
+            <div className="flex text-sm font-medium mb-2 border-b border-black pb-1">
+              <div className="w-[45%]">Cant.x P.Unitario<br/>Descripción</div>
+              <div className="w-[20%] text-right">Tasa Iva</div>
+              <div className="w-[35%] text-right">Subtotal</div>
             </div>
 
-            <div className="grid grid-cols-2">
-               {/* Left Header */}
-               <div className="p-4 border-r border-black relative">
-                 <h1 className="text-2xl font-bold mb-2">KIOSCO PRO</h1>
-                 <p className="font-bold">Razón Social: Mi Kiosco S.A.</p>
-                 <p>Domicilio Comercial: Av. Siempre Viva 123</p>
-                 <p>Condición frente al IVA: Responsable Inscripto</p>
+            {/* Rows */}
+            <div className="text-sm space-y-3">
+              {items.map((item, idx) => (
+                <div key={idx}>
+                  <div className="mb-0.5">{item.quantity.toFixed(2)} x {item.unitPrice.toFixed(2)}</div>
+                  <div className="flex justify-between items-start">
+                    <div className="w-[45%] font-medium">{item.productName}</div>
+                    <div className="w-[20%] text-right text-slate-500">(0.00)</div>
+                    <div className="w-[35%] text-right font-medium">{item.subtotal.toFixed(2)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="flex justify-between items-end mt-6 mb-4">
+             <div className="text-lg font-bold">Importe Total:$</div>
+             <div className="text-xl font-bold">{totalAmount.toFixed(2)}</div>
+          </div>
+
+          {/* Pagos */}
+          <div className="mb-6 text-sm">
+            <div className="font-bold mb-1">Pagos</div>
+            <div className="flex justify-between">
+              <span>{sale.paymentMethodName}</span>
+              <span>$ {totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Footer QR y CAE */}
+          <div className="flex gap-4 items-center pt-4 border-t border-dashed border-slate-300">
+             {/* Fake QR */}
+             <div className="w-24 h-24 bg-white border border-slate-200 p-1 shrink-0">
+               <img 
+                 src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://www.afip.gob.ar/fe/qr/?p=${btoa(JSON.stringify({ver:1,fecha:new Date().toISOString(),cuit:sellerInfo.cuit,ptoVta:1,tipoCmp:11,nroCmp:invoice.number,importe:totalAmount,moneda:"PES",ctz:1,tipoDocRec:99,nroDocRec:0,tipoCodAut:"E",codAut:invoice.cae}))}`} 
+                 alt="QR AFIP" 
+                 className="w-full h-full object-contain opacity-90"
+               />
+             </div>
+             
+             <div className="flex-1 flex flex-col justify-between h-24">
+               <div className="text-right text-xs">
+                 <div className="font-bold">CAE Nro: {invoice.cae}</div>
+                 <div>Fecha Vto CAE: {invoice.caeVto}</div>
                </div>
                
-               {/* Right Header */}
-               <div className="p-4 pl-8">
-                 <h2 className="text-xl font-bold mb-2">FACTURA</h2>
-                 <p className="mb-1"><span className="font-bold">Punto de Venta:</span> 0001 <span className="font-bold">Comp. Nro:</span> {invoice.number}</p>
-                 <p className="mb-1"><span className="font-bold">Fecha de Emisión:</span> {new Date(sale.timestamp).toLocaleDateString('es-AR')}</p>
-                 <p className="mb-1"><span className="font-bold">CUIT:</span> 30-12345678-9</p>
-                 <p className="mb-1"><span className="font-bold">Ingresos Brutos:</span> 123-456789</p>
-                 <p><span className="font-bold">Fecha de Inicio de Actividades:</span> 01/01/2024</p>
+               {/* Logo AFIP Simulado CSS */}
+               <div className="self-end mt-auto">
+                 <div className="flex items-end gap-0.5 opacity-60">
+                    <div className="w-2 h-6 bg-slate-400 skew-x-[-10deg] rounded-sm"></div>
+                    <div className="w-2 h-6 bg-slate-400 skew-x-[-10deg] rounded-sm"></div>
+                    <div className="w-2 h-6 bg-slate-400 skew-x-[-10deg] rounded-sm"></div>
+                    <span className="font-black text-slate-600 text-xl ml-1 leading-none italic">AFIP</span>
+                 </div>
+                 <div className="text-[9px] text-right mt-1 font-medium text-slate-500">Comprobante Autorizado</div>
                </div>
-            </div>
-          </div>
-
-          {/* Client Info */}
-          <div className="border border-black p-2 mb-4">
-            <div className="grid grid-cols-2 gap-4">
-              <p><span className="font-bold">CUIT:</span> {invoice.clientCuit || 'Sin Datos'}</p>
-              <p><span className="font-bold">Apellido y Nombre / Razón Social:</span> {invoice.clientName}</p>
-              <p><span className="font-bold">Condición frente al IVA:</span> {invoice.conditionIva}</p>
-              <p><span className="font-bold">Domicilio:</span> {invoice.clientAddress || '-'}</p>
-              <p className="col-span-2"><span className="font-bold">Condición de venta:</span> {sale.paymentMethodName}</p>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <table className="w-full mb-4 border-collapse">
-            <thead>
-              <tr className="bg-slate-200 border border-black text-center">
-                <th className="border border-black py-1">Cant.</th>
-                <th className="border border-black py-1 text-left px-2">Descripción</th>
-                <th className="border border-black py-1">Precio Unit.</th>
-                <th className="border border-black py-1">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={idx} className="text-center">
-                  <td className="border-x border-black py-1">{item.quantity}</td>
-                  <td className="border-x border-black py-1 text-left px-2">{item.productName}</td>
-                  <td className="border-x border-black py-1">${item.unitPrice.toFixed(2)}</td>
-                  <td className="border-x border-black py-1">${item.subtotal.toFixed(2)}</td>
-                </tr>
-              ))}
-              {/* Fill empty rows for layout */}
-              {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
-                <tr key={`empty-${i}`}>
-                   <td className="border-x border-black py-4">&nbsp;</td>
-                   <td className="border-x border-black py-4">&nbsp;</td>
-                   <td className="border-x border-black py-4">&nbsp;</td>
-                   <td className="border-x border-black py-4">&nbsp;</td>
-                </tr>
-              ))}
-              <tr className="border-t border-black"></tr>
-            </tbody>
-          </table>
-
-          {/* Totals */}
-          <div className="flex justify-end mb-8">
-            <div className="w-1/2 border border-black bg-slate-100 p-2">
-              <div className="flex justify-between mb-1">
-                <span className="font-bold">Subtotal:</span>
-                <span>${totalAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between mb-1">
-                <span className="font-bold">Importe Otros Tributos:</span>
-                <span>$0.00</span>
-              </div>
-               <div className="flex justify-between text-lg font-bold border-t border-black mt-2 pt-2">
-                <span>Importe Total:</span>
-                <span>${totalAmount.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer / CAE */}
-          <div className="border border-black p-4 flex justify-between items-center bg-slate-50">
-             <div className="w-2/3">
-               <p className="italic text-[10px] text-slate-500">
-                 Comprobante Autorizado. Esta es una representación gráfica simulada de la factura electrónica.
-               </p>
-             </div>
-             <div className="w-1/3 text-right">
-               <p className="font-bold">CAE: {invoice.cae}</p>
-               <p className="font-bold">Vto. CAE: {invoice.caeVto}</p>
              </div>
           </div>
+          
+          <div className="text-center mt-6 text-[10px] text-slate-400">
+            Facturalo Simple by KioscoPro
+          </div>
+
         </div>
       </div>
       
       {/* Print Styles */}
       <style>{`
         @media print {
+          @page {
+            margin: 0;
+            size: auto;
+          }
           body * {
             visibility: hidden;
           }
@@ -156,9 +181,16 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, onClose }) => {
             left: 0;
             top: 0;
             width: 100%;
+            max-width: 100%;
             margin: 0;
             padding: 20px;
             font-size: 12px;
+            border: none;
+          }
+          /* Ensure backgrounds print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>

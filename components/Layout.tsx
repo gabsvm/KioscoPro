@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface LayoutProps {
@@ -18,6 +18,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
   const navItems: { id: ViewState; label: string; icon: React.ReactNode }[] = [
     { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} /> },
     { id: 'POS', label: 'Vender', icon: <ShoppingCart size={20} /> },
+    { id: 'HISTORY', label: 'Historial', icon: <History size={20} /> },
     { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} /> },
     { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} /> },
     { id: 'FINANCE', label: 'Cajas', icon: <Wallet size={20} /> },

@@ -29,7 +29,7 @@ export interface SaleItem {
 }
 
 export interface InvoiceData {
-  type: 'A' | 'B' | 'C';
+  type: 'A' | 'B' | 'C' | 'X';
   number: string;
   clientName: string;
   clientCuit: string;
@@ -77,7 +77,7 @@ export interface Expense {
   type: 'PURCHASE' | 'PAYMENT'; // Purchase increases debt, Payment decreases it
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS';
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY';
 
 export interface DateRange {
   start: number; // Unix timestamp

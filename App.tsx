@@ -6,6 +6,7 @@ import Inventory from './components/Inventory';
 import Finance from './components/Finance';
 import Reports from './components/Reports';
 import Suppliers from './components/Suppliers';
+import SalesHistory from './components/SalesHistory';
 import Auth from './components/Auth';
 import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -284,6 +285,8 @@ const App: React.FC = () => {
         return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} />;
       case 'POS':
         return <POS products={products} paymentMethods={paymentMethods} onCompleteSale={handleCompleteSale} />;
+      case 'HISTORY':
+        return <SalesHistory sales={sales} />;
       case 'INVENTORY':
         return (
           <Inventory 
