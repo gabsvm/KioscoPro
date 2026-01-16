@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, Save, Check } from 'lucide-react';
+import { Store, Save, Check, Lock, ShieldAlert } from 'lucide-react';
 import { StoreProfile } from '../types';
 
 interface SettingsProps {
@@ -32,7 +32,7 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile }) =>
         </div>
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Configuración del Local</h2>
-          <p className="text-slate-500">Estos datos aparecerán en los encabezados de tus facturas y comprobantes.</p>
+          <p className="text-slate-500">Administra datos fiscales y seguridad.</p>
         </div>
       </div>
 
@@ -40,6 +40,42 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile }) =>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="col-span-full">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Seguridad y Empleados</h3>
+          </div>
+
+          <div className="col-span-full bg-orange-50 border border-orange-100 rounded-lg p-4 flex gap-3">
+             <ShieldAlert className="text-orange-500 shrink-0" size={24} />
+             <div>
+                <h4 className="font-bold text-orange-800 text-sm">Modo Empleado (Vendedor)</h4>
+                <p className="text-xs text-orange-700 mt-1">
+                  Establece un PIN de 4 dígitos. Al activar el "Modo Empleado", la app restringirá el acceso a configuración, ganancias y edición de productos.
+                  Para volver al modo Administrador, se solicitará este PIN.
+                </p>
+             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">PIN Maestro (Para desbloquear Admin)</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                name="sellerPin"
+                maxLength={4}
+                value={formData.sellerPin || ''}
+                onChange={(e) => {
+                   // Only allow numbers
+                   if (/^\d*$/.test(e.target.value)) {
+                     handleChange(e);
+                   }
+                }}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-mono text-lg tracking-widest"
+                placeholder="0000"
+              />
+            </div>
+          </div>
+
+          <div className="col-span-full mt-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Datos Comerciales</h3>
           </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { DollarSign, TrendingUp, Package, CreditCard, Sparkles, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Sale, Product, PaymentMethod } from '../types';
+import { DollarSign, TrendingUp, Package, CreditCard, Sparkles, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
+import { Sale, Product, PaymentMethod, UserRole } from '../types';
 import { analyzeBusinessData } from '../services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -9,9 +9,10 @@ interface DashboardProps {
   products: Product[];
   paymentMethods: PaymentMethod[];
   lowStockThreshold: number;
+  userRole?: UserRole; // Optional for backward compatibility, defaults to ADMIN if missing logic
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, lowStockThreshold }) => {
+const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, lowStockThreshold, userRole = 'ADMIN' }) => {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
 
@@ -75,31 +76,57 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
           <p className="text-xs text-slate-400 mt-2">{todaysSales.length} transacciones</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Ganancia Hoy</p>
-              <h3 className="text-2xl font-bold text-slate-800 mt-2">${dailyProfit.toFixed(2)}</h3>
+        {/* Hidden for Seller */}
+        {userRole === 'ADMIN' ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Ganancia Hoy</p>
+                  <h3 className="text-2xl font-bold text-slate-800 mt-2">${dailyProfit.toFixed(2)}</h3>
+                </div>
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  <TrendingUp size={20} />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">Margen prom: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
             </div>
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-              <TrendingUp size={20} />
+        ) : (
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-100 flex items-center justify-center text-slate-400">
+                <div className="text-center">
+                    <Lock size={24} className="mx-auto mb-2 opacity-50" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Info Restringida</span>
+                </div>
             </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-2">Margen prom: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
-        </div>
+        )}
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Valor Inventario</p>
-              <h3 className="text-2xl font-bold text-slate-800 mt-2">${totalStockValue.toFixed(2)}</h3>
+        {/* Hidden for Seller */}
+        {userRole === 'ADMIN' ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Valor Inventario</p>
+                  <h3 className="text-2xl font-bold text-slate-800 mt-2">${totalStockValue.toFixed(2)}</h3>
+                </div>
+                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                  <Package size={20} />
+                </div>
+              </div>
+               <p className="text-xs text-slate-400 mt-2">{products.length} productos registrados</p>
             </div>
-            <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-              <Package size={20} />
+        ) : (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <p className="text-sm font-medium text-slate-500">Productos</p>
+                        <h3 className="text-2xl font-bold text-slate-800 mt-2">{products.length}</h3>
+                    </div>
+                    <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                        <Package size={20} />
+                    </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">Total en catálogo</p>
             </div>
-          </div>
-           <p className="text-xs text-slate-400 mt-2">{products.length} productos registrados</p>
-        </div>
+        )}
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
@@ -133,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
                     cursor={{fill: '#f1f5f9'}}
                   />
                   <Bar dataKey="ventas" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Ventas ($)" />
-                  <Bar dataKey="ganancia" fill="#10b981" radius={[4, 4, 0, 0]} name="Ganancia ($)" />
+                  {userRole === 'ADMIN' && <Bar dataKey="ganancia" fill="#10b981" radius={[4, 4, 0, 0]} name="Ganancia ($)" />}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -172,44 +199,46 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
              )}
           </div>
 
-          {/* AI Assistant - Height Fix */}
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-xl shadow-lg relative overflow-hidden flex flex-col min-h-[400px]">
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
-            
-            <div className="relative z-10 flex flex-col flex-1">
-              <div className="flex items-center gap-2 mb-4 shrink-0">
-                <Sparkles className="text-yellow-300" size={24} />
-                <h3 className="text-xl font-bold">Kiosco AI Insights</h3>
-              </div>
-              
-              <div className="flex-1 bg-white/10 rounded-lg p-4 mb-4 overflow-y-auto custom-scrollbar">
-                {loadingAi ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          {/* AI Assistant - Only for Admin */}
+          {userRole === 'ADMIN' && (
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-xl shadow-lg relative overflow-hidden flex flex-col min-h-[400px]">
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+                
+                <div className="relative z-10 flex flex-col flex-1">
+                  <div className="flex items-center gap-2 mb-4 shrink-0">
+                    <Sparkles className="text-yellow-300" size={24} />
+                    <h3 className="text-xl font-bold">Kiosco AI Insights</h3>
                   </div>
-                ) : aiAnalysis ? (
-                   <div className="prose prose-invert prose-sm">
-                     <pre className="whitespace-pre-wrap font-sans text-sm">{aiAnalysis}</pre>
-                   </div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-indigo-100 opacity-80 text-center">
-                    <Sparkles className="mb-2 opacity-50" size={32} />
-                    <p className="italic">
-                      Obtén consejos inteligentes para mejorar tu rentabilidad.
-                    </p>
+                  
+                  <div className="flex-1 bg-white/10 rounded-lg p-4 mb-4 overflow-y-auto custom-scrollbar">
+                    {loadingAi ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      </div>
+                    ) : aiAnalysis ? (
+                       <div className="prose prose-invert prose-sm">
+                         <pre className="whitespace-pre-wrap font-sans text-sm">{aiAnalysis}</pre>
+                       </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-indigo-100 opacity-80 text-center">
+                        <Sparkles className="mb-2 opacity-50" size={32} />
+                        <p className="italic">
+                          Obtén consejos inteligentes para mejorar tu rentabilidad.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <button 
-                onClick={handleAiAnalysis}
-                disabled={loadingAi}
-                className="w-full shrink-0 bg-white text-indigo-600 py-3 rounded-lg font-bold hover:bg-indigo-50 transition-colors shadow-lg active:scale-95 disabled:opacity-50"
-              >
-                {loadingAi ? 'Analizando...' : 'Analizar Negocio'}
-              </button>
-            </div>
-          </div>
+                  <button 
+                    onClick={handleAiAnalysis}
+                    disabled={loadingAi}
+                    className="w-full shrink-0 bg-white text-indigo-600 py-3 rounded-lg font-bold hover:bg-indigo-50 transition-colors shadow-lg active:scale-95 disabled:opacity-50"
+                  >
+                    {loadingAi ? 'Analizando...' : 'Analizar Negocio'}
+                  </button>
+                </div>
+              </div>
+          )}
         </div>
       </div>
     </div>

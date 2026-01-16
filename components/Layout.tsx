@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History } from 'lucide-react';
-import { ViewState } from '../types';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock } from 'lucide-react';
+import { ViewState, UserRole } from '../types';
 
 interface LayoutProps {
   currentView: ViewState;
@@ -9,21 +9,25 @@ interface LayoutProps {
   userEmail?: string | null;
   isGuest?: boolean;
   onLogout: () => void;
+  userRole: UserRole;
+  onToggleRole: () => void; // Trigger role switch (ask for PIN if going SELLER -> ADMIN)
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [logoutConfirmType, setLogoutConfirmType] = useState<'LOGOUT' | 'SWITCH' | null>(null);
 
-  const navItems: { id: ViewState; label: string; icon: React.ReactNode }[] = [
-    { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} /> },
-    { id: 'POS', label: 'Vender', icon: <ShoppingCart size={20} /> },
-    { id: 'HISTORY', label: 'Historial', icon: <History size={20} /> },
-    { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} /> },
-    { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} /> },
-    { id: 'FINANCE', label: 'Cajas', icon: <Wallet size={20} /> },
-    { id: 'REPORTS', label: 'Reportes', icon: <BarChart3 size={20} /> },
+  const allNavItems: { id: ViewState; label: string; icon: React.ReactNode; roles: UserRole[] }[] = [
+    { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'POS', label: 'Vender', icon: <ShoppingCart size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'HISTORY', label: 'Historial', icon: <History size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} />, roles: ['ADMIN'] },
+    { id: 'FINANCE', label: 'Cajas', icon: <Wallet size={20} />, roles: ['ADMIN'] },
+    { id: 'REPORTS', label: 'Reportes', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
   ];
+
+  const visibleNavItems = allNavItems.filter(item => item.roles.includes(userRole));
 
   const handleLogoutAction = (type: 'LOGOUT' | 'SWITCH') => {
     setIsUserMenuOpen(false);
@@ -40,29 +44,36 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
     setIsUserMenuOpen(false);
   };
 
+  const handleRoleSwitch = () => {
+    onToggleRole();
+    setIsUserMenuOpen(false);
+  };
+
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 bg-slate-900 text-white flex-col shadow-xl z-20">
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-          <div className="bg-brand-500 p-2 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.5)]">
+      <aside className={`hidden md:flex w-64 ${userRole === 'ADMIN' ? 'bg-slate-900' : 'bg-slate-800'} text-white flex-col shadow-xl z-20 transition-colors duration-300`}>
+        <div className="p-6 flex items-center gap-3 border-b border-white/10">
+          <div className={`${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'} p-2 rounded-lg shadow-lg`}>
             <Store className="text-white" size={24} />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-none">KioscoPro</h1>
-            <span className="text-xs text-slate-400 font-medium">Versión 2.0</span>
+            <span className={`text-xs font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
+               {userRole === 'ADMIN' ? 'Administrador' : 'Modo Vendedor'}
+            </span>
           </div>
         </div>
 
         <nav className="flex-1 py-6 px-3 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 currentView === item.id
-                  ? 'bg-brand-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? (userRole === 'ADMIN' ? 'bg-brand-600 text-white shadow-lg' : 'bg-orange-600 text-white shadow-lg')
+                  : 'text-slate-400 hover:bg-white/10 hover:text-white'
               }`}
             >
               {item.icon}
@@ -71,9 +82,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-white/10">
            {isGuest && (
-             <div className="mb-4 bg-slate-800 p-3 rounded-lg border border-slate-700">
+             <div className="mb-4 bg-white/10 p-3 rounded-lg border border-white/5">
                <p className="text-xs text-slate-300 mb-2">Estás en modo invitado.</p>
                <button 
                  onClick={() => handleLogoutAction('SWITCH')} 
@@ -94,11 +105,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-30 shrink-0">
           <div className="flex items-center gap-2">
              {/* Mobile Logo Only */}
-             <div className="md:hidden bg-brand-500 p-1.5 rounded-lg">
+             <div className={`md:hidden p-1.5 rounded-lg ${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'}`}>
                 <Store className="text-white" size={18} />
              </div>
              <h2 className="text-xl font-bold text-slate-800">
-               {currentView === 'SETTINGS' ? 'Configuración' : navItems.find((i) => i.id === currentView)?.label}
+               {currentView === 'SETTINGS' ? 'Configuración' : visibleNavItems.find((i) => i.id === currentView)?.label || 'KioscoPro'}
              </h2>
           </div>
           
@@ -116,9 +127,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                  <div className="flex items-center gap-3">
                     <div className="hidden sm:flex flex-col items-end">
                       <span className="text-sm font-bold text-slate-700 leading-tight">{userEmail?.split('@')[0]}</span>
-                      <span className="text-[10px] text-slate-400">Administrador</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{userRole === 'ADMIN' ? 'Administrador' : 'Vendedor'}</span>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold border-2 border-brand-100 shadow-sm">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold border-2 shadow-sm ${userRole === 'ADMIN' ? 'bg-brand-600 border-brand-100' : 'bg-orange-500 border-orange-100'}`}>
                       {userEmail ? userEmail[0].toUpperCase() : 'U'}
                     </div>
                  </div>
@@ -134,7 +145,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                   <div className="p-4 border-b border-slate-100 bg-slate-50/50">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Cuenta Actual</p>
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${isGuest ? 'bg-orange-100 text-orange-600' : 'bg-brand-100 text-brand-600'}`}>
+                      <div className={`p-2 rounded-full ${isGuest ? 'bg-orange-100 text-orange-600' : userRole === 'ADMIN' ? 'bg-brand-100 text-brand-600' : 'bg-orange-100 text-orange-600'}`}>
                         {isGuest ? <UserCircle size={20} /> : <User size={20} />}
                       </div>
                       <div className="overflow-hidden">
@@ -145,21 +156,42 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                   </div>
 
                   <div className="p-2 space-y-1">
-                    <button 
-                      onClick={handleSettingsClick}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-sm font-medium"
-                    >
-                      <Settings size={18} />
-                      Configuración de App
-                    </button>
+                    {userRole === 'ADMIN' && (
+                      <button 
+                        onClick={handleSettingsClick}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-sm font-medium"
+                      >
+                        <Settings size={18} />
+                        Configuración de App
+                      </button>
+                    )}
+
+                    {!isGuest && (
+                      <button 
+                        onClick={handleRoleSwitch}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-bold ${
+                           userRole === 'ADMIN' 
+                           ? 'text-orange-600 hover:bg-orange-50' 
+                           : 'text-brand-600 hover:bg-brand-50'
+                        }`}
+                      >
+                        {userRole === 'ADMIN' ? <Lock size={18} /> : <Unlock size={18} />}
+                        {userRole === 'ADMIN' ? 'Activar Modo Empleado' : 'Salir de Modo Empleado'}
+                      </button>
+                    )}
+
                     <div className="border-t border-slate-100 my-1"></div>
-                    <button 
-                      onClick={() => handleLogoutAction('SWITCH')}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors text-sm font-medium"
-                    >
-                      <RefreshCw size={18} />
-                      Cambiar Cuenta
-                    </button>
+                    
+                    {userRole === 'ADMIN' && (
+                      <button 
+                        onClick={() => handleLogoutAction('SWITCH')}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors text-sm font-medium"
+                      >
+                        <RefreshCw size={18} />
+                        Cambiar Cuenta
+                      </button>
+                    )}
+                    
                     <button 
                       onClick={() => handleLogoutAction('LOGOUT')}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
@@ -187,12 +219,12 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
 
         {/* Mobile Bottom Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar">
-           {navItems.map(item => (
+           {visibleNavItems.map(item => (
              <button 
                key={item.id}
                onClick={() => setView(item.id)}
                className={`flex flex-col items-center justify-center min-w-[70px] h-full space-y-1 active:bg-slate-50 ${
-                 currentView === item.id ? 'text-brand-600' : 'text-slate-400'
+                 currentView === item.id ? (userRole === 'ADMIN' ? 'text-brand-600' : 'text-orange-600') : 'text-slate-400'
                }`}
              >
                {React.cloneElement(item.icon as React.ReactElement, { size: 20 })}

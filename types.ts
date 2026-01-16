@@ -86,9 +86,12 @@ export interface StoreProfile {
   iibb: string;
   startDate: string;
   ivaCondition: string;
+  sellerPin?: string; // PIN to exit seller mode
 }
 
 export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS';
+
+export type UserRole = 'ADMIN' | 'SELLER';
 
 export interface DateRange {
   start: number; // Unix timestamp

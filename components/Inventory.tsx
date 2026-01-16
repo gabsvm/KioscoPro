@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Search, X, Settings } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Settings, Lock } from 'lucide-react';
 import { Product } from '../types';
 
 interface InventoryProps {
@@ -9,9 +9,10 @@ interface InventoryProps {
   onUpdateProduct: (p: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateThreshold: (n: number) => void;
+  isReadOnly?: boolean;
 }
 
-const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAddProduct, onUpdateProduct, onDeleteProduct, onUpdateThreshold }) => {
+const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAddProduct, onUpdateProduct, onDeleteProduct, onUpdateThreshold, isReadOnly = false }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
   const [stock, setStock] = useState('');
 
   const openModal = (product?: Product) => {
+    if (isReadOnly) return;
     if (product) {
       setEditingProduct(product);
       setName(product.name);
@@ -45,6 +47,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
     const productData = {
       name,
       category: category || 'General',
@@ -70,41 +73,48 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Inventario</h2>
-        <div className="flex gap-2 w-full md:w-auto">
-          {/* Settings Toggle */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-lg border transition-colors ${showSettings ? 'bg-slate-200 border-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
-              title="Configurar Alertas"
-            >
-              <Settings size={20} className="text-slate-600" />
-            </button>
-            
-            {showSettings && (
-              <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 bg-white p-4 rounded-lg shadow-xl border border-slate-200 w-64 z-20 animate-in fade-in zoom-in-95">
-                <h4 className="font-bold text-sm text-slate-700 mb-2">Configuración de Alertas</h4>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs text-slate-500">Avisar si stock es menor o igual a:</label>
-                  <input 
-                    type="number" 
-                    min="0"
-                    value={lowStockThreshold}
-                    onChange={(e) => onUpdateThreshold(parseInt(e.target.value) || 0)}
-                    className="w-16 border rounded p-1 text-center font-bold text-slate-700 bg-white"
-                  />
-                </div>
+        
+        {isReadOnly ? (
+             <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                <Lock size={16} /> Modo Lectura
+             </div>
+        ) : (
+            <div className="flex gap-2 w-full md:w-auto">
+              {/* Settings Toggle */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-lg border transition-colors ${showSettings ? 'bg-slate-200 border-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+                  title="Configurar Alertas"
+                >
+                  <Settings size={20} className="text-slate-600" />
+                </button>
+                
+                {showSettings && (
+                  <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 bg-white p-4 rounded-lg shadow-xl border border-slate-200 w-64 z-20 animate-in fade-in zoom-in-95">
+                    <h4 className="font-bold text-sm text-slate-700 mb-2">Configuración de Alertas</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs text-slate-500">Avisar si stock es menor o igual a:</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={lowStockThreshold}
+                        onChange={(e) => onUpdateThreshold(parseInt(e.target.value) || 0)}
+                        className="w-16 border rounded p-1 text-center font-bold text-slate-700 bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <button 
-            onClick={() => openModal()}
-            className="flex-1 md:flex-none bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
-          >
-            <Plus size={20} /> Nuevo Producto
-          </button>
-        </div>
+              <button 
+                onClick={() => openModal()}
+                className="flex-1 md:flex-none bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              >
+                <Plus size={20} /> Nuevo Producto
+              </button>
+            </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -132,11 +142,11 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
               <tr>
                 <th className="px-6 py-4">Producto</th>
                 <th className="px-6 py-4">Categoría</th>
-                <th className="px-6 py-4">Costo</th>
+                {!isReadOnly && <th className="px-6 py-4">Costo</th>}
                 <th className="px-6 py-4">Precio Venta</th>
-                <th className="px-6 py-4">Margen</th>
+                {!isReadOnly && <th className="px-6 py-4">Margen</th>}
                 <th className="px-6 py-4">Stock</th>
-                <th className="px-6 py-4 text-right">Acciones</th>
+                {!isReadOnly && <th className="px-6 py-4 text-right">Acciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -151,32 +161,36 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                   <tr key={product.id} className={`transition-colors ${isLowStock ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
                     <td className="px-6 py-4 font-medium text-slate-800">{product.name}</td>
                     <td className="px-6 py-4 text-slate-500"><span className="bg-white border border-slate-200 px-2 py-1 rounded text-xs">{product.category}</span></td>
-                    <td className="px-6 py-4 text-slate-600">${product.costPrice}</td>
+                    {!isReadOnly && <td className="px-6 py-4 text-slate-600">${product.costPrice}</td>}
                     <td className="px-6 py-4 text-slate-800 font-bold">${product.sellingPrice}</td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-bold px-2 py-1 rounded ${margin > 30 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {margin.toFixed(0)}%
-                      </span>
-                    </td>
+                    {!isReadOnly && (
+                        <td className="px-6 py-4">
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${margin > 30 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {margin.toFixed(0)}%
+                          </span>
+                        </td>
+                    )}
                     <td className="px-6 py-4">
                        <span className={`font-bold px-2 py-1 rounded ${isLowStock ? 'text-red-600 bg-red-100 border border-red-200' : 'text-slate-600'}`}>
                          {product.stock}
                        </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button onClick={() => openModal(product)} className="text-brand-600 hover:text-brand-800 p-1 hover:bg-brand-50 rounded">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => onDeleteProduct(product.id)} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
+                    {!isReadOnly && (
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button onClick={() => openModal(product)} className="text-brand-600 hover:text-brand-800 p-1 hover:bg-brand-50 rounded">
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={() => onDeleteProduct(product.id)} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                    )}
                   </tr>
                 );
               })}
               {filteredProducts.length === 0 && (
                  <tr>
-                   <td colSpan={7} className="px-6 py-10 text-center text-slate-400">
+                   <td colSpan={isReadOnly ? 5 : 7} className="px-6 py-10 text-center text-slate-400">
                      No hay productos registrados
                    </td>
                  </tr>
@@ -187,7 +201,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       </div>
 
       {/* Modal */}
-      {isModalOpen && (
+      {isModalOpen && !isReadOnly && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
             <button 
