@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Search, X, Settings, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Settings, Lock, Scale } from 'lucide-react';
 import { Product } from '../types';
 
 interface InventoryProps {
@@ -24,6 +24,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [stock, setStock] = useState('');
+  const [isVariablePrice, setIsVariablePrice] = useState(false);
 
   const openModal = (product?: Product) => {
     if (isReadOnly) return;
@@ -34,6 +35,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       setCostPrice(product.costPrice.toString());
       setSellingPrice(product.sellingPrice.toString());
       setStock(product.stock.toString());
+      setIsVariablePrice(!!product.isVariablePrice);
     } else {
       setEditingProduct(null);
       setName('');
@@ -41,6 +43,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       setCostPrice('');
       setSellingPrice('');
       setStock('');
+      setIsVariablePrice(false);
     }
     setIsModalOpen(true);
   };
@@ -52,8 +55,9 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       name,
       category: category || 'General',
       costPrice: parseFloat(costPrice) || 0,
-      sellingPrice: parseFloat(sellingPrice) || 0,
+      sellingPrice: isVariablePrice ? 0 : (parseFloat(sellingPrice) || 0),
       stock: parseInt(stock) || 0,
+      isVariablePrice: isVariablePrice
     };
 
     if (editingProduct) {
@@ -62,6 +66,15 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       onAddProduct(productData);
     }
     setIsModalOpen(false);
+  };
+
+  // Helper to auto-set category when checking variable price
+  const handleVariableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsVariablePrice(checked);
+    if (checked && (!category || category === 'General' || category === 'Kiosco')) {
+      setCategory('Fiambrería');
+    }
   };
 
   const filteredProducts = products.filter(p => 
@@ -159,15 +172,32 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
 
                 return (
                   <tr key={product.id} className={`transition-colors ${isLowStock ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
-                    <td className="px-6 py-4 font-medium text-slate-800">{product.name}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">
+                      {product.name}
+                      {product.isVariablePrice && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
+                          <Scale size={10} className="mr-1"/> Pesable
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-slate-500"><span className="bg-white border border-slate-200 px-2 py-1 rounded text-xs">{product.category}</span></td>
                     {!isReadOnly && <td className="px-6 py-4 text-slate-600">${product.costPrice}</td>}
-                    <td className="px-6 py-4 text-slate-800 font-bold">${product.sellingPrice}</td>
+                    <td className="px-6 py-4 text-slate-800 font-bold">
+                      {product.isVariablePrice ? (
+                        <span className="text-slate-400 italic font-normal">Manual</span>
+                      ) : (
+                        `$${product.sellingPrice}`
+                      )}
+                    </td>
                     {!isReadOnly && (
                         <td className="px-6 py-4">
-                          <span className={`text-xs font-bold px-2 py-1 rounded ${margin > 30 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {margin.toFixed(0)}%
-                          </span>
+                          {product.isVariablePrice ? (
+                            <span className="text-xs text-slate-400">-</span>
+                          ) : (
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${margin > 30 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {margin.toFixed(0)}%
+                            </span>
+                          )}
                         </td>
                     )}
                     <td className="px-6 py-4">
@@ -224,7 +254,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                  placeholder="Ej. Coca Cola 500ml"
+                  placeholder="Ej. Jamón Cocido"
                 />
               </div>
 
@@ -236,7 +266,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                     value={category}
                     onChange={e => setCategory(e.target.value)}
                     className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                    placeholder="Ej. Bebidas"
+                    placeholder="Ej. Fiambrería"
                   />
                 </div>
                 <div>
@@ -251,9 +281,24 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                 </div>
               </div>
 
+              {/* Variable Price Toggle */}
+              <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 flex items-center gap-3">
+                 <input 
+                   type="checkbox" 
+                   id="variablePrice"
+                   checked={isVariablePrice}
+                   onChange={handleVariableChange}
+                   className="w-5 h-5 text-brand-600 rounded focus:ring-brand-500 border-gray-300 cursor-pointer"
+                 />
+                 <label htmlFor="variablePrice" className="text-sm font-bold text-purple-900 cursor-pointer flex items-center gap-2 select-none">
+                    <Scale size={18} />
+                    Precio Variable (Fiambrería)
+                 </label>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Costo ($)</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Costo Estimado ($)</label>
                   <input 
                     type="number"
                     step="0.01" 
@@ -264,14 +309,18 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Venta ($)</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">
+                    {isVariablePrice ? 'Precio' : 'Precio Venta ($)'}
+                  </label>
                   <input 
                     type="number"
                     step="0.01" 
                     min="0"
                     value={sellingPrice}
+                    disabled={isVariablePrice}
                     onChange={e => setSellingPrice(e.target.value)}
-                    className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                    className={`w-full px-4 py-2 text-slate-900 border rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none ${isVariablePrice ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-300'}`}
+                    placeholder={isVariablePrice ? "Manual al vender" : "0.00"}
                   />
                 </div>
               </div>

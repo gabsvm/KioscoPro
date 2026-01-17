@@ -6,6 +6,7 @@ export interface Product {
   stock: number;
   category: string;
   barcode?: string;
+  isVariablePrice?: boolean; // If true, price is set at POS time (e.g. Fiambrería)
 }
 
 export interface PaymentMethod {

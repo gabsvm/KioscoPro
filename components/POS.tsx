@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail } from '../types';
 import InvoiceModal from './InvoiceModal';
 
@@ -17,6 +17,11 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
   const [showCheckout, setShowCheckout] = useState(false);
   const [mobileView, setMobileView] = useState<'CATALOG' | 'CART'>('CATALOG');
   
+  // Variable Price State (Fiambreria)
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+  const [manualPriceInput, setManualPriceInput] = useState('');
+
   // Payment State
   const [selectedMethod, setSelectedMethod] = useState<string>(paymentMethods[0]?.id || '');
   const [isSplitPayment, setIsSplitPayment] = useState(false);
@@ -63,6 +68,14 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
   }, [products, searchTerm, selectedCategory]);
 
   const addToCart = (product: Product) => {
+    // If it's a variable price product (Fiambreria), ask for price first
+    if (product.isVariablePrice) {
+      setPendingProduct(product);
+      setManualPriceInput('');
+      setShowPriceModal(true);
+      return;
+    }
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -72,6 +85,28 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+  };
+
+  const confirmVariablePrice = (e: React.FormEvent) => {
+    e.preventDefault();
+    const price = parseFloat(manualPriceInput);
+    if (!pendingProduct || !price || price <= 0) return;
+
+    // Create a unique entry for this weighted/variable item
+    // We modify the ID so it doesn't merge with other items of the same product type but different weights
+    const uniqueId = `${pendingProduct.id}-${Date.now()}`;
+
+    const newItem: CartItem = {
+      ...pendingProduct,
+      id: uniqueId, // Override ID for cart uniqueness
+      sellingPrice: price,
+      quantity: 1
+    };
+
+    setCart(prev => [...prev, newItem]);
+    setShowPriceModal(false);
+    setPendingProduct(null);
+    setManualPriceInput('');
   };
 
   const removeFromCart = (productId: string) => {
@@ -202,13 +237,22 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
               >
                 <div>
                   <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
-                  <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                     <p className="text-[10px] md:text-xs text-slate-500">{product.category}</p>
+                     {product.isVariablePrice && (
+                       <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold flex items-center">
+                         <Scale size={8} className="mr-0.5"/> Manual
+                       </span>
+                     )}
+                  </div>
                 </div>
                 <div className="flex justify-between items-end mt-2">
                    <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                      Stock: {product.stock}
                    </span>
-                   <span className="font-bold text-base md:text-lg text-brand-600">${product.sellingPrice}</span>
+                   <span className="font-bold text-base md:text-lg text-brand-600">
+                     {product.isVariablePrice ? '$-.--' : `$${product.sellingPrice}`}
+                   </span>
                 </div>
               </div>
             ))}
@@ -242,15 +286,29 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
                 <div key={item.id} className="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-100">
                   <div className="flex-1 overflow-hidden">
                     <h4 className="text-sm font-medium text-slate-800 truncate">{item.name}</h4>
-                    <div className="text-xs text-brand-600 font-bold">${(item.sellingPrice * item.quantity).toFixed(2)}</div>
+                    <div className="text-xs text-brand-600 font-bold">
+                       {item.isVariablePrice ? (
+                          <span className="flex items-center gap-1"><Scale size={10} /> ${item.sellingPrice.toFixed(2)}</span>
+                       ) : (
+                          `$${(item.sellingPrice * item.quantity).toFixed(2)}`
+                       )}
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-1 md:gap-2 bg-slate-100 rounded-lg p-1">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded shadow-sm">
+                    <button 
+                      onClick={() => updateQuantity(item.id, -1)} 
+                      className="p-1 hover:bg-white rounded shadow-sm disabled:opacity-50"
+                      disabled={!!item.isVariablePrice} // Disable qty change for variable items (usually 1 pack = 1 price)
+                    >
                       <Minus size={14} />
                     </button>
                     <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white rounded shadow-sm">
+                    <button 
+                      onClick={() => updateQuantity(item.id, 1)} 
+                      className="p-1 hover:bg-white rounded shadow-sm disabled:opacity-50"
+                      disabled={!!item.isVariablePrice} // Disable qty change for variable items
+                    >
                       <Plus size={14} />
                     </button>
                   </div>
@@ -440,6 +498,48 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
       {/* Invoice Modal */}
       {lastSale && lastSale.invoice && (
         <InvoiceModal sale={lastSale} storeProfile={storeProfile} onClose={() => setLastSale(null)} />
+      )}
+
+      {/* Variable Price Modal (Fiambreria) */}
+      {showPriceModal && pendingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95">
+             <h3 className="text-xl font-bold text-slate-800 mb-2">Ingresar Monto</h3>
+             <p className="text-slate-500 mb-4 flex items-center gap-2">
+                <Package size={16}/> {pendingProduct.name}
+             </p>
+             <form onSubmit={confirmVariablePrice}>
+                <div className="relative mb-6">
+                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">$</span>
+                   <input 
+                     autoFocus
+                     type="number" 
+                     step="0.01" 
+                     min="0"
+                     value={manualPriceInput}
+                     onChange={e => setManualPriceInput(e.target.value)}
+                     className="w-full pl-10 pr-4 py-4 text-3xl font-bold text-slate-800 border-2 border-brand-200 rounded-xl focus:border-brand-500 focus:outline-none text-center"
+                     placeholder="0.00"
+                   />
+                </div>
+                <div className="flex gap-3">
+                   <button 
+                     type="button" 
+                     onClick={() => setShowPriceModal(false)}
+                     className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                   >
+                     Cancelar
+                   </button>
+                   <button 
+                     type="submit" 
+                     className="flex-1 py-3 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors"
+                   >
+                     Confirmar
+                   </button>
+                </div>
+             </form>
+           </div>
+        </div>
       )}
     </>
   );
