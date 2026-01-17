@@ -82,21 +82,21 @@ const App: React.FC = () => {
       const unsubs = [
         onSnapshot(collection(db, 'users', userId, 'products'), (snap) => {
           const data = snap.docs.map(d => d.data() as Product);
-          if (data.length === 0 && !snap.metadata.hasPendingWrites) {
-             // Optional: seeding could happen here, but better left manual or explicit
-             // For now, we leave empty if cloud is empty
-          }
           setProducts(data);
-        }),
+        }, (error) => console.error("Error syncing products:", error)),
+        
         onSnapshot(collection(db, 'users', userId, 'sales'), (snap) => {
           setSales(snap.docs.map(d => d.data() as Sale));
-        }),
+        }, (error) => console.error("Error syncing sales:", error)),
+
         onSnapshot(collection(db, 'users', userId, 'paymentMethods'), (snap) => {
           const data = snap.docs.map(d => d.data() as PaymentMethod);
           if (data.length > 0) setPaymentMethods(data);
           else {
-             // Init default methods in DB if empty
-             initialPaymentMethods.forEach(pm => setDoc(doc(db, 'users', userId, 'paymentMethods', pm.id), pm));
+             // Init default methods in DB if empty - Check only once
+             if (!snap.metadata.hasPendingWrites) {
+                // We avoid auto-writing here to prevent loops, user can use "Migrate" or create manually
+             }
           }
         }),
         onSnapshot(collection(db, 'users', userId, 'transfers'), (snap) => setTransfers(snap.docs.map(d => d.data() as Transfer))),
@@ -107,9 +107,6 @@ const App: React.FC = () => {
              const data = snap.data();
              setLowStockThreshold(data.lowStockThreshold ?? 5);
              if (data.storeProfile) setStoreProfile(data.storeProfile);
-          } else {
-             // Init settings
-             setDoc(doc(db, 'users', userId, 'settings', 'config'), { lowStockThreshold: 5, storeProfile: initialStoreProfile });
           }
         }),
       ];
@@ -141,6 +138,78 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Data Migration (Local -> Cloud) ---
+  const handleMigrateData = async () => {
+    if (!user) return;
+    if (!confirm("Esto subirá tus datos locales (productos, ventas, configuración) a tu cuenta en la nube. ¿Deseas continuar?")) return;
+
+    try {
+      const loadLocal = (key: string) => {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : [];
+      };
+
+      const localProducts = loadLocal('products');
+      const localSales = loadLocal('sales');
+      const localMethods = loadLocal('paymentMethods');
+      const localSuppliers = loadLocal('suppliers');
+      const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
+
+      const batchLimit = 450;
+      let batch = writeBatch(db);
+      let count = 0;
+      const commitBatch = async () => {
+        await batch.commit();
+        batch = writeBatch(db);
+        count = 0;
+      };
+
+      // Products
+      for (const p of localProducts) {
+        batch.set(doc(db, 'users', user.uid, 'products', p.id), p);
+        count++;
+        if (count >= batchLimit) await commitBatch();
+      }
+
+      // Sales
+      for (const s of localSales) {
+        batch.set(doc(db, 'users', user.uid, 'sales', s.id), s);
+        count++;
+        if (count >= batchLimit) await commitBatch();
+      }
+
+      // Methods
+      for (const m of localMethods) {
+        batch.set(doc(db, 'users', user.uid, 'paymentMethods', m.id), m);
+        count++;
+        if (count >= batchLimit) await commitBatch();
+      }
+
+      // Suppliers
+      for (const s of localSuppliers) {
+        batch.set(doc(db, 'users', user.uid, 'suppliers', s.id), s);
+        count++;
+        if (count >= batchLimit) await commitBatch();
+      }
+
+      // Profile
+      if (localProfile) {
+        batch.set(doc(db, 'users', user.uid, 'settings', 'config'), { 
+           storeProfile: localProfile,
+           lowStockThreshold: 5 
+        }, { merge: true });
+        count++;
+      }
+
+      if (count > 0) await commitBatch();
+
+      alert("¡Datos migrados exitosamente! Ahora están seguros en la nube.");
+    } catch (error) {
+      console.error(error);
+      alert("Hubo un error al migrar los datos. Revisa la consola.");
+    }
+  };
+
   // --- Actions (Hybrid: Cloud or Local) ---
 
   const handleAddProduct = async (newProduct: Omit<Product, 'id'>) => {
@@ -148,7 +217,12 @@ const App: React.FC = () => {
     const product = { ...newProduct, id: uuidv4() };
     
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'products', product.id), product);
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'products', product.id), product);
+      } catch (e) {
+        console.error("Error adding product", e);
+        alert("Error al guardar en la nube.");
+      }
     } else {
       const updated = [...products, product];
       setProducts(updated);
@@ -160,13 +234,32 @@ const App: React.FC = () => {
     if (userRole !== 'ADMIN') return;
     
     if (user) {
-      const batch = writeBatch(db);
-      newProducts.forEach(p => {
-         const id = uuidv4();
-         const ref = doc(db, 'users', user.uid, 'products', id);
-         batch.set(ref, { ...p, id });
-      });
-      await batch.commit();
+      try {
+        // Chunk the array into batches of 450 (Firestore limit is 500)
+        const chunkSize = 450;
+        for (let i = 0; i < newProducts.length; i += chunkSize) {
+          const chunk = newProducts.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          
+          chunk.forEach(p => {
+             const id = uuidv4();
+             // Sanitize undefined values
+             const safeProduct = {
+               ...p,
+               id,
+               barcode: p.barcode || null, // Convert undefined to null for Firestore
+               isVariablePrice: !!p.isVariablePrice
+             };
+             const ref = doc(db, 'users', user.uid, 'products', id);
+             batch.set(ref, safeProduct);
+          });
+          
+          await batch.commit();
+        }
+      } catch (e) {
+        console.error("Bulk add error:", e);
+        alert("Error en la importación masiva. Revisa tu conexión.");
+      }
     } else {
       const productsWithIds = newProducts.map(p => ({ ...p, id: uuidv4() }));
       const updated = [...products, ...productsWithIds];
@@ -233,41 +326,39 @@ const App: React.FC = () => {
     };
 
     if (user) {
-      // --- Firestore Transaction/Batch ---
-      const batch = writeBatch(db);
-      
-      // 1. Create Sale
-      const saleRef = doc(db, 'users', user.uid, 'sales', newSale.id);
-      batch.set(saleRef, newSale);
-
-      // 2. Update Stock
-      cartItems.forEach(item => {
-        // Only update stock for real catalog items (not temporary variable price items created on fly if they don't have a real ID match in products array, though logic here assumes cartItems come from products)
-        // Note: For "Variable Price" items that are generic, we might not track stock, but assuming we do:
-        // We need to be careful if ID was modified (e.g. for unique cart items). 
-        // POS implementation: uniqueId = `${pendingProduct.id}-${Date.now()}`. We need original ID.
-        const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
+      try {
+        // --- Firestore Transaction/Batch ---
+        const batch = writeBatch(db);
         
-        // Find current stock from state (optimistic) to calc new value. 
-        // Ideally we use increment(-qty) but stock is absolute number in Product interface.
-        // We will read current product state.
-        const productInDb = products.find(p => p.id === originalId);
-        if (productInDb) {
-           const productRef = doc(db, 'users', user.uid, 'products', originalId);
-           batch.update(productRef, { stock: productInDb.stock - item.quantity });
-        }
-      });
+        // 1. Create Sale
+        const saleRef = doc(db, 'users', user.uid, 'sales', newSale.id);
+        batch.set(saleRef, newSale);
 
-      // 3. Update Money (Balances)
-      payments.forEach(p => {
-         const method = paymentMethods.find(m => m.id === p.methodId);
-         if (method) {
-            const methodRef = doc(db, 'users', user.uid, 'paymentMethods', p.methodId);
-            batch.update(methodRef, { balance: method.balance + p.amount });
-         }
-      });
+        // 2. Update Stock
+        cartItems.forEach(item => {
+          const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
+          const productInDb = products.find(p => p.id === originalId);
+          if (productInDb) {
+             const productRef = doc(db, 'users', user.uid, 'products', originalId);
+             batch.update(productRef, { stock: productInDb.stock - item.quantity });
+          }
+        });
 
-      await batch.commit();
+        // 3. Update Money (Balances)
+        payments.forEach(p => {
+           const method = paymentMethods.find(m => m.id === p.methodId);
+           if (method) {
+              const methodRef = doc(db, 'users', user.uid, 'paymentMethods', p.methodId);
+              batch.update(methodRef, { balance: method.balance + p.amount });
+           }
+        });
+
+        await batch.commit();
+      } catch (e) {
+        console.error("Error completing sale:", e);
+        alert("Error al procesar la venta. Verifique conexión.");
+        return undefined;
+      }
 
     } else {
       // --- Local Storage ---
@@ -558,7 +649,13 @@ const App: React.FC = () => {
       case 'REPORTS':
         return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
       case 'SETTINGS':
-        return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} /> : null;
+        return userRole === 'ADMIN' ? (
+          <Settings 
+             storeProfile={storeProfile} 
+             onUpdateProfile={handleUpdateProfile} 
+             onMigrateData={user ? handleMigrateData : undefined}
+          />
+        ) : null;
       default:
         return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
     }

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Store, Save, Check, Lock, ShieldAlert } from 'lucide-react';
+import { Store, Save, Check, Lock, ShieldAlert, CloudUpload } from 'lucide-react';
 import { StoreProfile } from '../types';
 
 interface SettingsProps {
   storeProfile: StoreProfile;
   onUpdateProfile: (profile: StoreProfile) => void;
+  onMigrateData?: () => void; // Optional function for data migration
 }
 
-const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile }) => {
+const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMigrateData }) => {
   const [formData, setFormData] = useState<StoreProfile>(storeProfile);
   const [saved, setSaved] = useState(false);
 
@@ -38,8 +39,31 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile }) =>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* Data Migration Section - Visible if function provided */}
+          {onMigrateData && (
+             <div className="col-span-full bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between gap-4">
+                <div className="flex gap-3">
+                   <CloudUpload className="text-indigo-600 shrink-0" size={24} />
+                   <div>
+                      <h4 className="font-bold text-indigo-900 text-sm">Sincronizar Datos Locales</h4>
+                      <p className="text-xs text-indigo-700 mt-1 max-w-lg">
+                        Si tenías datos guardados antes de iniciar sesión (como invitado), usa este botón para subirlos a tu cuenta en la nube. 
+                        Útil si ves tu inventario vacío después de loguearte.
+                      </p>
+                   </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={onMigrateData}
+                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-md shrink-0"
+                >
+                   Subir Datos
+                </button>
+             </div>
+          )}
           
-          <div className="col-span-full">
+          <div className="col-span-full mt-2">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Seguridad y Empleados</h3>
           </div>
 
