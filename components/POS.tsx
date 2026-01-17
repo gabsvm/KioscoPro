@@ -6,7 +6,7 @@ import InvoiceModal from './InvoiceModal';
 interface POSProps {
   products: Product[];
   paymentMethods: PaymentMethod[];
-  onCompleteSale: (items: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData) => Sale | undefined;
+  onCompleteSale: (items: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData) => Promise<Sale | undefined> | Sale | undefined;
   storeProfile: StoreProfile;
 }
 
@@ -131,7 +131,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
     
     // Validate Split Payment
@@ -189,7 +189,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
       };
     }
 
-    const sale = onCompleteSale(cart, finalPayments, invoiceData);
+    const sale = await onCompleteSale(cart, finalPayments, invoiceData);
     if (sale) {
       setLastSale(sale); // This triggers the modal
     }
