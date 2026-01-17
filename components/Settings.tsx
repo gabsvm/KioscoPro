@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, Save, Check, Lock, ShieldAlert, CloudUpload } from 'lucide-react';
+import { Store, Save, Check, Lock, ShieldAlert, Upload } from 'lucide-react';
 import { StoreProfile } from '../types';
 
 interface SettingsProps {
@@ -44,7 +44,7 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
           {onMigrateData && (
              <div className="col-span-full bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between gap-4">
                 <div className="flex gap-3">
-                   <CloudUpload className="text-indigo-600 shrink-0" size={24} />
+                   <Upload className="text-indigo-600 shrink-0" size={24} />
                    <div>
                       <h4 className="font-bold text-indigo-900 text-sm">Sincronizar Datos Locales</h4>
                       <p className="text-xs text-indigo-700 mt-1 max-w-lg">
