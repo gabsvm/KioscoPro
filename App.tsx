@@ -132,6 +132,13 @@ const App: React.FC = () => {
     setProducts([...products, product]);
   };
 
+  const handleBulkAddProducts = (newProducts: Omit<Product, 'id'>[]) => {
+    if (userRole !== 'ADMIN') return;
+    // Generate IDs for all new products
+    const productsWithIds = newProducts.map(p => ({ ...p, id: uuidv4() }));
+    setProducts(prev => [...prev, ...productsWithIds]);
+  };
+
   const handleUpdateProduct = (updatedProduct: Product) => {
     if (userRole !== 'ADMIN') return;
     setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
@@ -355,7 +362,8 @@ const App: React.FC = () => {
         return (
           <Inventory 
             products={products} 
-            onAddProduct={handleAddProduct} 
+            onAddProduct={handleAddProduct}
+            onBulkAddProducts={handleBulkAddProducts} 
             onUpdateProduct={handleUpdateProduct} 
             onDeleteProduct={handleDeleteProduct}
             lowStockThreshold={lowStockThreshold}

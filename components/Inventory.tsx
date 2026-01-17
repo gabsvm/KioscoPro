@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Search, X, Settings, Lock, Scale } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Settings, Lock, Scale, Upload, FileSpreadsheet, Barcode } from 'lucide-react';
 import { Product } from '../types';
 
 interface InventoryProps {
   products: Product[];
   lowStockThreshold: number;
   onAddProduct: (p: Omit<Product, 'id'>) => void;
+  onBulkAddProducts: (p: Omit<Product, 'id'>[]) => void;
   onUpdateProduct: (p: Product) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateThreshold: (n: number) => void;
   isReadOnly?: boolean;
 }
 
-const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAddProduct, onUpdateProduct, onDeleteProduct, onUpdateThreshold, isReadOnly = false }) => {
+const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAddProduct, onBulkAddProducts, onUpdateProduct, onDeleteProduct, onUpdateThreshold, isReadOnly = false }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -24,6 +26,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [stock, setStock] = useState('');
+  const [barcode, setBarcode] = useState('');
   const [isVariablePrice, setIsVariablePrice] = useState(false);
 
   const openModal = (product?: Product) => {
@@ -35,6 +38,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       setCostPrice(product.costPrice.toString());
       setSellingPrice(product.sellingPrice.toString());
       setStock(product.stock.toString());
+      setBarcode(product.barcode || '');
       setIsVariablePrice(!!product.isVariablePrice);
     } else {
       setEditingProduct(null);
@@ -43,6 +47,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       setCostPrice('');
       setSellingPrice('');
       setStock('');
+      setBarcode('');
       setIsVariablePrice(false);
     }
     setIsModalOpen(true);
@@ -57,6 +62,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       costPrice: parseFloat(costPrice) || 0,
       sellingPrice: isVariablePrice ? 0 : (parseFloat(sellingPrice) || 0),
       stock: parseInt(stock) || 0,
+      barcode: barcode.trim() || undefined,
       isVariablePrice: isVariablePrice
     };
 
@@ -77,9 +83,134 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
     }
   };
 
+  // --- Advanced CSV Parser ---
+  const parseCSVRow = (row: string, separator: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === separator && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    // Clean quotes: "Value" -> Value
+    return result.map(val => val.trim().replace(/^"|"$/g, '').trim());
+  };
+
+  const cleanCurrency = (val: string): number => {
+    if (!val) return 0;
+    // Remove dots (thousands separator in AR/EU) and replace comma with dot
+    // Example: "1.500,00" -> "1500.00"
+    // Example: "733,63" -> "733.63"
+    const cleaned = val.replace(/\./g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      const newProducts: Omit<Product, 'id'>[] = [];
+
+      // Detect separator (CSV or TSV)
+      const firstLine = lines[0];
+      const separator = firstLine.includes('\t') ? '\t' : ',';
+
+      // Parse Headers
+      const headers = parseCSVRow(lines[0], separator).map(h => h.toUpperCase());
+      
+      // Determine Indexes based on specific file format or generic names
+      const idxName = headers.indexOf('DESCRIPCION') !== -1 ? headers.indexOf('DESCRIPCION') : headers.findIndex(h => h.includes('NOMBRE') || h.includes('PRODUCTO'));
+      const idxCategory = headers.indexOf('RUBRO') !== -1 ? headers.indexOf('RUBRO') : headers.findIndex(h => h.includes('CATEGORIA'));
+      const idxCost = headers.indexOf('PRECIO COMPRA') !== -1 ? headers.indexOf('PRECIO COMPRA') : headers.findIndex(h => h.includes('COSTO'));
+      const idxPrice = headers.indexOf('PRECIO VENTA') !== -1 ? headers.indexOf('PRECIO VENTA') : headers.findIndex(h => h.includes('PRECIO') || h.includes('VENTA'));
+      const idxStock = headers.findIndex(h => h.includes('STOCK') || h.includes('CANTIDAD'));
+      const idxBarcode = headers.indexOf('CODIGO BARRA') !== -1 ? headers.indexOf('CODIGO BARRA') : headers.findIndex(h => h.includes('CODIGO') || h.includes('BARRA') || h.includes('SKU'));
+      const idxId = headers.indexOf('ID') !== -1 ? headers.indexOf('ID') : -1;
+
+      // Start from line 1
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVRow(lines[i], separator);
+        
+        // Safety check for empty rows
+        if (row.length < 2) continue;
+
+        const name = idxName !== -1 ? row[idxName] : (row[0] || 'Sin Nombre');
+        // If RUBRO is empty, fallback to 'General'
+        let category = (idxCategory !== -1 ? row[idxCategory] : 'General') || 'General';
+        // Capitalize category
+        category = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+
+        const costPrice = idxCost !== -1 ? cleanCurrency(row[idxCost]) : 0;
+        const sellingPrice = idxPrice !== -1 ? cleanCurrency(row[idxPrice]) : 0;
+        const stock = idxStock !== -1 ? parseInt(row[idxStock]) || 0 : 0; // Default 0 if missing
+        
+        // Barcode logic: Try "CODIGO BARRA", if empty/space, try "ID", else undefined
+        let barcode = undefined;
+        if (idxBarcode !== -1 && row[idxBarcode]) {
+           barcode = row[idxBarcode];
+        } else if (idxId !== -1 && row[idxId]) {
+           // Optionally use ID as barcode if barcode is missing
+           // barcode = row[idxId]; 
+        }
+
+        if (name && name !== 'Sin Nombre') {
+          newProducts.push({
+            name,
+            category,
+            costPrice,
+            sellingPrice,
+            stock,
+            barcode,
+            isVariablePrice: false
+          });
+        }
+      }
+
+      if (newProducts.length > 0) {
+        const previewMsg = `
+          Se detectaron ${newProducts.length} productos.
+          
+          Ejemplo:
+          Producto: ${newProducts[0].name}
+          Rubro: ${newProducts[0].category}
+          Costo: $${newProducts[0].costPrice}
+          Venta: $${newProducts[0].sellingPrice}
+          
+          ¿Confirmar importación?
+        `;
+        
+        if (confirm(previewMsg)) {
+          onBulkAddProducts(newProducts);
+          setIsImportModalOpen(false);
+          alert('¡Importación exitosa!');
+        }
+      } else {
+        alert('No se pudieron leer los productos. Verifica que el archivo tenga columnas de "DESCRIPCION" y "PRECIO VENTA".');
+      }
+      e.target.value = ''; // Reset input
+    };
+    reader.readAsText(file);
+  };
+
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
+    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.barcode && p.barcode.includes(searchTerm))
   );
 
   return (
@@ -119,6 +250,14 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                   </div>
                 )}
               </div>
+              
+              <button 
+                onClick={() => setIsImportModalOpen(true)}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+                title="Importar Excel/CSV"
+              >
+                <Upload size={20} /> <span className="hidden sm:inline">Importar</span>
+              </button>
 
               <button 
                 onClick={() => openModal()}
@@ -136,7 +275,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
              <input 
                type="text" 
-               placeholder="Buscar por nombre o categoría..." 
+               placeholder="Buscar por nombre, código o categoría..." 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
                className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -172,10 +311,15 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
 
                 return (
                   <tr key={product.id} className={`transition-colors ${isLowStock ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
-                    <td className="px-6 py-4 font-medium text-slate-800">
-                      {product.name}
+                    <td className="px-6 py-4 text-slate-800">
+                      <div className="font-medium">{product.name}</div>
+                      {product.barcode && (
+                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                           <Barcode size={12} /> {product.barcode}
+                        </div>
+                      )}
                       {product.isVariablePrice && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 mt-1">
                           <Scale size={10} className="mr-1"/> Pesable
                         </span>
                       )}
@@ -230,7 +374,57 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Import Modal */}
+      {isImportModalOpen && !isReadOnly && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 relative animate-in fade-in zoom-in-95 duration-200">
+             <button 
+              onClick={() => setIsImportModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="text-center mb-6">
+               <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                  <FileSpreadsheet className="text-green-600" size={32} />
+               </div>
+               <h3 className="text-xl font-bold text-slate-800">Importación Masiva</h3>
+               <p className="text-slate-500 text-sm mt-2">
+                 Carga tu archivo CSV o Excel exportado.
+               </p>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6 text-sm text-slate-700">
+               <p className="font-bold mb-2">Columnas detectadas:</p>
+               <ul className="list-disc pl-5 space-y-1 font-medium text-xs">
+                 <li>DESCRIPCION (Nombre)</li>
+                 <li>RUBRO (Categoría)</li>
+                 <li>PRECIO COMPRA (Costo)</li>
+                 <li>PRECIO VENTA (Venta)</li>
+                 <li>CODIGO BARRA (Opcional)</li>
+               </ul>
+               <p className="mt-3 text-xs text-brand-600 italic border-t border-slate-200 pt-2">
+                 * El sistema detecta automáticamente los montos con formato argentino (ej: 1.500,00).
+               </p>
+            </div>
+
+            <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer group">
+               <input 
+                 type="file" 
+                 accept=".csv, .txt, .tsv"
+                 onChange={handleFileUpload}
+                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+               />
+               <Upload className="mx-auto text-slate-400 group-hover:text-brand-500 transition-colors mb-2" size={32} />
+               <p className="font-bold text-brand-600 group-hover:text-brand-700">Haz clic para buscar archivo</p>
+               <p className="text-xs text-slate-400">Soporta .csv y .txt</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Modal */}
       {isModalOpen && !isReadOnly && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">
@@ -256,6 +450,20 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                   className="w-full px-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none"
                   placeholder="Ej. Jamón Cocido"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Código de Barras / SKU (Opcional)</label>
+                <div className="relative">
+                  <Barcode className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    value={barcode}
+                    onChange={e => setBarcode(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none font-mono"
+                    placeholder="Escanear o escribir..."
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -298,7 +506,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Costo Estimado ($)</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Costo ($)</label>
                   <input 
                     type="number"
                     step="0.01" 
@@ -310,7 +518,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-600 mb-1">
-                    {isVariablePrice ? 'Precio' : 'Precio Venta ($)'}
+                    {isVariablePrice ? 'Precio' : 'Venta ($)'}
                   </label>
                   <input 
                     type="number"
@@ -320,7 +528,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                     disabled={isVariablePrice}
                     onChange={e => setSellingPrice(e.target.value)}
                     className={`w-full px-4 py-2 text-slate-900 border rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none ${isVariablePrice ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-300'}`}
-                    placeholder={isVariablePrice ? "Manual al vender" : "0.00"}
+                    placeholder={isVariablePrice ? "Manual" : "0.00"}
                   />
                 </div>
               </div>

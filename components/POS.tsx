@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail } from '../types';
 import InvoiceModal from './InvoiceModal';
 
@@ -61,7 +61,10 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const lowerSearch = searchTerm.toLowerCase();
+      // Search by Name OR Barcode
+      const matchesSearch = p.name.toLowerCase().includes(lowerSearch) || 
+                            (p.barcode && p.barcode.toLowerCase().includes(lowerSearch));
       const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -85,6 +88,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+    
+    // Optional: Clear search after exact match add (common POS behavior), 
+    // but here we keep it to allow adding multiples or leave up to user.
   };
 
   const confirmVariablePrice = (e: React.FormEvent) => {
@@ -213,7 +219,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
               <input 
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder="Buscar por nombre o código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -233,8 +239,13 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
               <div 
                 key={product.id}
                 onClick={() => addToCart(product)}
-                className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36"
+                className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group"
               >
+                {product.barcode && (
+                   <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center">
+                      <Barcode size={10} className="mr-0.5"/>
+                   </div>
+                )}
                 <div>
                   <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
                   <div className="flex items-center gap-2 mt-1">
@@ -260,6 +271,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, onCompleteSale, sto
               <div className="col-span-full flex flex-col items-center justify-center text-slate-400 py-10">
                 <Package className="w-12 h-12 mb-2 opacity-50" />
                 <p>No se encontraron productos</p>
+                <p className="text-xs mt-1">Prueba con otro nombre o código</p>
               </div>
             )}
           </div>
