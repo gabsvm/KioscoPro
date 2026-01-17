@@ -38,14 +38,19 @@ const initialStoreProfile: StoreProfile = {
   ivaCondition: "Consumidor Final"
 };
 
-// --- Helper: Firestore hates 'undefined', replace with 'null' ---
+// --- Helper: Robust Sanitation for Firestore ---
+// Fixes 'undefined' -> null
+// Fixes NaN -> 0
 const sanitizeForFirestore = (obj: any): any => {
+  if (obj === undefined) return null;
+  if (typeof obj === 'number' && isNaN(obj)) return 0;
+  
   if (Array.isArray(obj)) {
     return obj.map(v => sanitizeForFirestore(v));
   } else if (obj !== null && typeof obj === 'object') {
     return Object.keys(obj).reduce((acc, key) => {
       const value = obj[key];
-      acc[key] = value === undefined ? null : sanitizeForFirestore(value);
+      acc[key] = sanitizeForFirestore(value);
       return acc;
     }, {} as any);
   }
@@ -169,12 +174,13 @@ const App: React.FC = () => {
       const localSuppliers = loadLocal('suppliers');
       const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
 
-      const batchLimit = 400; // Lower limit to be safe
+      const batchLimit = 250; 
       let batch = writeBatch(db);
       let count = 0;
 
       const commitBatch = async () => {
         if (count > 0) {
+          console.log(`Committing batch of ${count} items...`);
           await batch.commit();
           batch = writeBatch(db);
           count = 0;
@@ -183,7 +189,8 @@ const App: React.FC = () => {
 
       // Helper to add to batch safely
       const addToBatch = (ref: any, data: any) => {
-        batch.set(ref, sanitizeForFirestore(data));
+        const cleanData = sanitizeForFirestore(data);
+        batch.set(ref, cleanData);
         count++;
       };
 
@@ -340,10 +347,11 @@ const App: React.FC = () => {
     if (user) {
       try {
         const batch = writeBatch(db);
+        const cleanSale = sanitizeForFirestore(newSale);
         
-        // 1. Create Sale (Sanitized)
+        // 1. Create Sale
         const saleRef = doc(db, 'users', user.uid, 'sales', newSale.id);
-        batch.set(saleRef, sanitizeForFirestore(newSale));
+        batch.set(saleRef, cleanSale);
 
         // 2. Update Stock
         cartItems.forEach(item => {
@@ -351,7 +359,10 @@ const App: React.FC = () => {
           const productInDb = products.find(p => p.id === originalId);
           if (productInDb) {
              const productRef = doc(db, 'users', user.uid, 'products', originalId);
-             batch.update(productRef, { stock: productInDb.stock - item.quantity });
+             // Ensure we are doing math on numbers
+             const currentStock = Number(productInDb.stock) || 0;
+             const qty = Number(item.quantity) || 0;
+             batch.update(productRef, { stock: currentStock - qty });
           }
         });
 
@@ -360,14 +371,15 @@ const App: React.FC = () => {
            const method = paymentMethods.find(m => m.id === p.methodId);
            if (method) {
               const methodRef = doc(db, 'users', user.uid, 'paymentMethods', p.methodId);
-              batch.update(methodRef, { balance: method.balance + p.amount });
+              const currentBalance = Number(method.balance) || 0;
+              batch.update(methodRef, { balance: currentBalance + p.amount });
            }
         });
 
         await batch.commit();
       } catch (e) {
         console.error("Error completing sale:", e);
-        alert("Error al procesar la venta. Verifique conexión.");
+        alert("Error al procesar la venta. Verifique los datos de los productos (costos/precios).");
         return undefined;
       }
 

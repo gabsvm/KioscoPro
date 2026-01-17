@@ -107,11 +107,28 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
 
   const cleanCurrency = (val: string): number => {
     if (!val) return 0;
-    // Remove dots (thousands separator in AR/EU) and replace comma with dot
-    // Example: "1.500,00" -> "1500.00"
-    // Example: "733,63" -> "733.63"
-    const cleaned = val.replace(/\./g, '').replace(',', '.');
-    return parseFloat(cleaned) || 0;
+    
+    // Attempt to detect format
+    // Format 1: 1.500,00 (AR/ES/DE) -> Dot is thousand, Comma is decimal
+    // Format 2: 1,500.00 (US/UK) -> Comma is thousand, Dot is decimal
+    // Format 3: 1500 (Plain)
+    
+    // If it has comma AND dot
+    if (val.includes(',') && val.includes('.')) {
+        if (val.lastIndexOf(',') > val.lastIndexOf('.')) {
+            // Format 1: 1.500,00
+            return parseFloat(val.replace(/\./g, '').replace(',', '.'));
+        } else {
+            // Format 2: 1,500.00
+            return parseFloat(val.replace(/,/g, ''));
+        }
+    }
+    // If it only has comma, assume decimal if it looks like price (e.g. 100,50)
+    if (val.includes(',')) {
+        return parseFloat(val.replace(',', '.'));
+    }
+    
+    return parseFloat(val) || 0;
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,12 +151,12 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
       const headers = parseCSVRow(lines[0], separator).map(h => h.toUpperCase());
       
       // Determine Indexes based on specific file format or generic names
-      const idxName = headers.indexOf('DESCRIPCION') !== -1 ? headers.indexOf('DESCRIPCION') : headers.findIndex(h => h.includes('NOMBRE') || h.includes('PRODUCTO'));
-      const idxCategory = headers.indexOf('RUBRO') !== -1 ? headers.indexOf('RUBRO') : headers.findIndex(h => h.includes('CATEGORIA'));
-      const idxCost = headers.indexOf('PRECIO COMPRA') !== -1 ? headers.indexOf('PRECIO COMPRA') : headers.findIndex(h => h.includes('COSTO'));
-      const idxPrice = headers.indexOf('PRECIO VENTA') !== -1 ? headers.indexOf('PRECIO VENTA') : headers.findIndex(h => h.includes('PRECIO') || h.includes('VENTA'));
-      const idxStock = headers.findIndex(h => h.includes('STOCK') || h.includes('CANTIDAD'));
-      const idxBarcode = headers.indexOf('CODIGO BARRA') !== -1 ? headers.indexOf('CODIGO BARRA') : headers.findIndex(h => h.includes('CODIGO') || h.includes('BARRA') || h.includes('SKU'));
+      const idxName = headers.indexOf('DESCRIPCION') !== -1 ? headers.indexOf('DESCRIPCION') : headers.findIndex(h => h.includes('NOMBRE') || h.includes('PRODUCTO') || h.includes('DESCRIPTION'));
+      const idxCategory = headers.indexOf('RUBRO') !== -1 ? headers.indexOf('RUBRO') : headers.findIndex(h => h.includes('CATEGORIA') || h.includes('CATEGORY'));
+      const idxCost = headers.indexOf('PRECIO COMPRA') !== -1 ? headers.indexOf('PRECIO COMPRA') : headers.findIndex(h => h.includes('COSTO') || h.includes('COST'));
+      const idxPrice = headers.indexOf('PRECIO VENTA') !== -1 ? headers.indexOf('PRECIO VENTA') : headers.findIndex(h => h.includes('PRECIO') || h.includes('VENTA') || h.includes('PRICE'));
+      const idxStock = headers.findIndex(h => h.includes('STOCK') || h.includes('CANTIDAD') || h.includes('QTY'));
+      const idxBarcode = headers.indexOf('CODIGO BARRA') !== -1 ? headers.indexOf('CODIGO BARRA') : headers.findIndex(h => h.includes('CODIGO') || h.includes('BARRA') || h.includes('SKU') || h.includes('CODE'));
       const idxId = headers.indexOf('ID') !== -1 ? headers.indexOf('ID') : -1;
 
       // Start from line 1
