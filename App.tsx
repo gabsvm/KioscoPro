@@ -38,6 +38,20 @@ const initialStoreProfile: StoreProfile = {
   ivaCondition: "Consumidor Final"
 };
 
+// --- Helper: Firestore hates 'undefined', replace with 'null' ---
+const sanitizeForFirestore = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => sanitizeForFirestore(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const value = obj[key];
+      acc[key] = value === undefined ? null : sanitizeForFirestore(value);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+};
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
@@ -155,58 +169,63 @@ const App: React.FC = () => {
       const localSuppliers = loadLocal('suppliers');
       const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
 
-      const batchLimit = 450;
+      const batchLimit = 400; // Lower limit to be safe
       let batch = writeBatch(db);
       let count = 0;
+
       const commitBatch = async () => {
-        await batch.commit();
-        batch = writeBatch(db);
-        count = 0;
+        if (count > 0) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      };
+
+      // Helper to add to batch safely
+      const addToBatch = (ref: any, data: any) => {
+        batch.set(ref, sanitizeForFirestore(data));
+        count++;
       };
 
       // Products
       for (const p of localProducts) {
-        batch.set(doc(db, 'users', user.uid, 'products', p.id), p);
-        count++;
+        addToBatch(doc(db, 'users', user.uid, 'products', p.id), p);
         if (count >= batchLimit) await commitBatch();
       }
 
       // Sales
       for (const s of localSales) {
-        batch.set(doc(db, 'users', user.uid, 'sales', s.id), s);
-        count++;
+        addToBatch(doc(db, 'users', user.uid, 'sales', s.id), s);
         if (count >= batchLimit) await commitBatch();
       }
 
       // Methods
       for (const m of localMethods) {
-        batch.set(doc(db, 'users', user.uid, 'paymentMethods', m.id), m);
-        count++;
+        addToBatch(doc(db, 'users', user.uid, 'paymentMethods', m.id), m);
         if (count >= batchLimit) await commitBatch();
       }
 
       // Suppliers
       for (const s of localSuppliers) {
-        batch.set(doc(db, 'users', user.uid, 'suppliers', s.id), s);
-        count++;
+        addToBatch(doc(db, 'users', user.uid, 'suppliers', s.id), s);
         if (count >= batchLimit) await commitBatch();
       }
 
       // Profile
       if (localProfile) {
-        batch.set(doc(db, 'users', user.uid, 'settings', 'config'), { 
+        batch.set(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ 
            storeProfile: localProfile,
            lowStockThreshold: 5 
-        }, { merge: true });
+        }), { merge: true });
         count++;
       }
 
-      if (count > 0) await commitBatch();
+      await commitBatch();
 
       alert("¡Datos migrados exitosamente! Ahora están seguros en la nube.");
     } catch (error) {
-      console.error(error);
-      alert("Hubo un error al migrar los datos. Revisa la consola.");
+      console.error("Migration Error:", error);
+      alert("Hubo un error al migrar los datos. Revisa la consola para más detalles.");
     }
   };
 
@@ -218,7 +237,7 @@ const App: React.FC = () => {
     
     if (user) {
       try {
-        await setDoc(doc(db, 'users', user.uid, 'products', product.id), product);
+        await setDoc(doc(db, 'users', user.uid, 'products', product.id), sanitizeForFirestore(product));
       } catch (e) {
         console.error("Error adding product", e);
         alert("Error al guardar en la nube.");
@@ -235,23 +254,16 @@ const App: React.FC = () => {
     
     if (user) {
       try {
-        // Chunk the array into batches of 450 (Firestore limit is 500)
-        const chunkSize = 450;
+        const chunkSize = 400;
         for (let i = 0; i < newProducts.length; i += chunkSize) {
           const chunk = newProducts.slice(i, i + chunkSize);
           const batch = writeBatch(db);
           
           chunk.forEach(p => {
              const id = uuidv4();
-             // Sanitize undefined values
-             const safeProduct = {
-               ...p,
-               id,
-               barcode: p.barcode || null, // Convert undefined to null for Firestore
-               isVariablePrice: !!p.isVariablePrice
-             };
+             const productData = { ...p, id };
              const ref = doc(db, 'users', user.uid, 'products', id);
-             batch.set(ref, safeProduct);
+             batch.set(ref, sanitizeForFirestore(productData));
           });
           
           await batch.commit();
@@ -272,7 +284,7 @@ const App: React.FC = () => {
     if (userRole !== 'ADMIN') return;
 
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), updatedProduct);
+      await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), sanitizeForFirestore(updatedProduct));
     } else {
       const updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
       setProducts(updated);
@@ -327,12 +339,11 @@ const App: React.FC = () => {
 
     if (user) {
       try {
-        // --- Firestore Transaction/Batch ---
         const batch = writeBatch(db);
         
-        // 1. Create Sale
+        // 1. Create Sale (Sanitized)
         const saleRef = doc(db, 'users', user.uid, 'sales', newSale.id);
-        batch.set(saleRef, newSale);
+        batch.set(saleRef, sanitizeForFirestore(newSale));
 
         // 2. Update Stock
         cartItems.forEach(item => {
@@ -394,7 +405,7 @@ const App: React.FC = () => {
     const newMethod: PaymentMethod = { id: uuidv4(), name, type, balance: 0 };
     
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), newMethod);
+      await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
     } else {
       const updated = [...paymentMethods, newMethod];
       setPaymentMethods(updated);
@@ -447,7 +458,7 @@ const App: React.FC = () => {
 
     if (user) {
       const batch = writeBatch(db);
-      batch.set(doc(db, 'users', user.uid, 'transfers', newTransfer.id), newTransfer);
+      batch.set(doc(db, 'users', user.uid, 'transfers', newTransfer.id), sanitizeForFirestore(newTransfer));
       batch.update(doc(db, 'users', user.uid, 'paymentMethods', fromId), { balance: fromMethod.balance - amount });
       batch.update(doc(db, 'users', user.uid, 'paymentMethods', toId), { balance: toMethod.balance + amount });
       await batch.commit();
@@ -471,7 +482,7 @@ const App: React.FC = () => {
     const newSupplier: Supplier = { ...supplierData, id: uuidv4(), balance: 0 };
     
     if (user) {
-      await setDoc(doc(db, 'users', user.uid, 'suppliers', newSupplier.id), newSupplier);
+      await setDoc(doc(db, 'users', user.uid, 'suppliers', newSupplier.id), sanitizeForFirestore(newSupplier));
     } else {
       const updated = [...suppliers, newSupplier];
       setSuppliers(updated);
@@ -495,7 +506,7 @@ const App: React.FC = () => {
 
     if (user) {
       const batch = writeBatch(db);
-      batch.set(doc(db, 'users', user.uid, 'expenses', newExpense.id), newExpense);
+      batch.set(doc(db, 'users', user.uid, 'expenses', newExpense.id), sanitizeForFirestore(newExpense));
       
       const delta = type === 'PURCHASE' ? amount : -amount;
       batch.update(doc(db, 'users', user.uid, 'suppliers', supplierId), { balance: supplier.balance + delta });
@@ -539,10 +550,10 @@ const App: React.FC = () => {
   // --- Settings & Profile Sync ---
   const handleUpdateProfile = async (profile: StoreProfile) => {
      if (user) {
-       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), { 
+       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ 
          lowStockThreshold, 
          storeProfile: profile 
-       }, { merge: true });
+       }), { merge: true });
      } else {
        setStoreProfile(profile);
        saveLocal('storeProfile', profile);
@@ -551,10 +562,10 @@ const App: React.FC = () => {
 
   const handleUpdateThreshold = async (val: number) => {
      if (user) {
-       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), { 
+       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ 
          lowStockThreshold: val, 
          storeProfile 
-       }, { merge: true });
+       }), { merge: true });
      } else {
        setLowStockThreshold(val);
        saveLocal('lowStockThreshold', val);
