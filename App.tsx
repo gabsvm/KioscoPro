@@ -11,50 +11,10 @@ import Settings from './components/Settings';
 import Auth from './components/Auth';
 import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail } from './types';
 import { v4 as uuidv4 } from 'uuid';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc } from 'firebase/firestore';
 import { Lock } from 'lucide-react';
-
-// Helper to persist state (scoped by userID or 'guest')
-function useLocalStorage<T>(key: string, initialValue: T, userId: string | undefined, isGuest: boolean): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const actualKey = (isGuest || !userId) ? key : `${userId}_${key}`;
-
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(actualKey);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error(error);
-      return initialValue;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      const item = window.localStorage.getItem(actualKey);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      } else {
-        if (!userId && !isGuest) {
-            return;
-        }
-        setStoredValue(initialValue);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [actualKey]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(actualKey, JSON.stringify(storedValue));
-    } catch (error) {
-      console.error(error);
-    }
-  }, [actualKey, storedValue]);
-
-  return [storedValue, setStoredValue];
-}
 
 const initialProducts: Product[] = [
   { id: '1', name: 'Coca Cola 500ml', costPrice: 500, sellingPrice: 1000, stock: 50, category: 'Bebidas' },
@@ -88,150 +48,293 @@ const App: React.FC = () => {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  const STORAGE_KEYS = ['products', 'sales', 'paymentMethods', 'transfers', 'suppliers', 'expenses', 'lowStockThreshold', 'storeProfile'];
+  // State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
+  const [storeProfile, setStoreProfile] = useState<StoreProfile>(initialStoreProfile);
 
+  // --- Auth & Data Loading ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
       if (currentUser) {
-        STORAGE_KEYS.forEach(key => {
-            const guestData = window.localStorage.getItem(key);
-            const userKey = `${currentUser.uid}_${key}`;
-            const userData = window.localStorage.getItem(userKey);
-
-            if (guestData && !userData) {
-                window.localStorage.setItem(userKey, guestData);
-            }
-        });
-        
-        setUser(currentUser);
         setIsGuestMode(false);
-      } else {
-        setUser(null);
       }
       setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const userId = user?.uid;
-  
-  const [products, setProducts] = useLocalStorage<Product[]>('products', initialProducts, userId, isGuestMode);
-  const [sales, setSales] = useLocalStorage<Sale[]>('sales', [], userId, isGuestMode);
-  const [paymentMethods, setPaymentMethods] = useLocalStorage<PaymentMethod[]>('paymentMethods', initialPaymentMethods, userId, isGuestMode);
-  const [transfers, setTransfers] = useLocalStorage<Transfer[]>('transfers', [], userId, isGuestMode);
-  const [suppliers, setSuppliers] = useLocalStorage<Supplier[]>('suppliers', [], userId, isGuestMode);
-  const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', [], userId, isGuestMode);
-  const [lowStockThreshold, setLowStockThreshold] = useLocalStorage<number>('lowStockThreshold', 5, userId, isGuestMode);
-  const [storeProfile, setStoreProfile] = useLocalStorage<StoreProfile>('storeProfile', initialStoreProfile, userId, isGuestMode);
+  // --- Real-time Sync Logic ---
+  useEffect(() => {
+    if (authLoading) return;
 
-  // --- Actions ---
+    if (user) {
+      // --- MODE: CLOUD (Firestore) ---
+      // Subscribe to all collections in real-time
+      const userId = user.uid;
+      
+      const unsubs = [
+        onSnapshot(collection(db, 'users', userId, 'products'), (snap) => {
+          const data = snap.docs.map(d => d.data() as Product);
+          if (data.length === 0 && !snap.metadata.hasPendingWrites) {
+             // Optional: seeding could happen here, but better left manual or explicit
+             // For now, we leave empty if cloud is empty
+          }
+          setProducts(data);
+        }),
+        onSnapshot(collection(db, 'users', userId, 'sales'), (snap) => {
+          setSales(snap.docs.map(d => d.data() as Sale));
+        }),
+        onSnapshot(collection(db, 'users', userId, 'paymentMethods'), (snap) => {
+          const data = snap.docs.map(d => d.data() as PaymentMethod);
+          if (data.length > 0) setPaymentMethods(data);
+          else {
+             // Init default methods in DB if empty
+             initialPaymentMethods.forEach(pm => setDoc(doc(db, 'users', userId, 'paymentMethods', pm.id), pm));
+          }
+        }),
+        onSnapshot(collection(db, 'users', userId, 'transfers'), (snap) => setTransfers(snap.docs.map(d => d.data() as Transfer))),
+        onSnapshot(collection(db, 'users', userId, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => d.data() as Supplier))),
+        onSnapshot(collection(db, 'users', userId, 'expenses'), (snap) => setExpenses(snap.docs.map(d => d.data() as Expense))),
+        onSnapshot(doc(db, 'users', userId, 'settings', 'config'), (snap) => {
+          if (snap.exists()) {
+             const data = snap.data();
+             setLowStockThreshold(data.lowStockThreshold ?? 5);
+             if (data.storeProfile) setStoreProfile(data.storeProfile);
+          } else {
+             // Init settings
+             setDoc(doc(db, 'users', userId, 'settings', 'config'), { lowStockThreshold: 5, storeProfile: initialStoreProfile });
+          }
+        }),
+      ];
 
-  const handleAddProduct = (newProduct: Omit<Product, 'id'>) => {
-    if (userRole !== 'ADMIN') return;
-    const product = { ...newProduct, id: uuidv4() };
-    setProducts([...products, product]);
-  };
+      return () => unsubs.forEach(u => u());
 
-  const handleBulkAddProducts = (newProducts: Omit<Product, 'id'>[]) => {
-    if (userRole !== 'ADMIN') return;
-    // Generate IDs for all new products
-    const productsWithIds = newProducts.map(p => ({ ...p, id: uuidv4() }));
-    setProducts(prev => [...prev, ...productsWithIds]);
-  };
+    } else {
+      // --- MODE: LOCAL STORAGE (Guest) ---
+      const load = <T,>(key: string, def: T): T => {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : def;
+      };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    if (userRole !== 'ADMIN') return;
-    setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-  };
+      setProducts(load('products', initialProducts));
+      setSales(load('sales', []));
+      setPaymentMethods(load('paymentMethods', initialPaymentMethods));
+      setTransfers(load('transfers', []));
+      setSuppliers(load('suppliers', []));
+      setExpenses(load('expenses', []));
+      setLowStockThreshold(load('lowStockThreshold', 5));
+      setStoreProfile(load('storeProfile', initialStoreProfile));
+    }
+  }, [user, isGuestMode, authLoading]);
 
-  const handleDeleteProduct = (id: string) => {
-    if (userRole !== 'ADMIN') return;
-    if (confirm('¿Estás seguro de eliminar este producto?')) {
-      setProducts(products.filter(p => p.id !== id));
+  // --- Persistence Helper for Guest Mode ---
+  const saveLocal = (key: string, data: any) => {
+    if (!user) {
+      window.localStorage.setItem(key, JSON.stringify(data));
     }
   };
 
-  // Modified to handle Split Payments
-  const handleCompleteSale = (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData): Sale | undefined => {
+  // --- Actions (Hybrid: Cloud or Local) ---
+
+  const handleAddProduct = async (newProduct: Omit<Product, 'id'>) => {
+    if (userRole !== 'ADMIN') return;
+    const product = { ...newProduct, id: uuidv4() };
     
-    // Validate that total payment matches or exceeds total amount
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'products', product.id), product);
+    } else {
+      const updated = [...products, product];
+      setProducts(updated);
+      saveLocal('products', updated);
+    }
+  };
+
+  const handleBulkAddProducts = async (newProducts: Omit<Product, 'id'>[]) => {
+    if (userRole !== 'ADMIN') return;
+    
+    if (user) {
+      const batch = writeBatch(db);
+      newProducts.forEach(p => {
+         const id = uuidv4();
+         const ref = doc(db, 'users', user.uid, 'products', id);
+         batch.set(ref, { ...p, id });
+      });
+      await batch.commit();
+    } else {
+      const productsWithIds = newProducts.map(p => ({ ...p, id: uuidv4() }));
+      const updated = [...products, ...productsWithIds];
+      setProducts(updated);
+      saveLocal('products', updated);
+    }
+  };
+
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    if (userRole !== 'ADMIN') return;
+
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), updatedProduct);
+    } else {
+      const updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+      setProducts(updated);
+      saveLocal('products', updated);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (userRole !== 'ADMIN') return;
+    if (confirm('¿Estás seguro de eliminar este producto?')) {
+      if (user) {
+        await deleteDoc(doc(db, 'users', user.uid, 'products', id));
+      } else {
+        const updated = products.filter(p => p.id !== id);
+        setProducts(updated);
+        saveLocal('products', updated);
+      }
+    }
+  };
+
+  const handleCompleteSale = async (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData): Promise<Sale | undefined> => {
+    // Calc totals
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
     const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
 
-    // Allow a small margin for float errors, but usually should match
     if (totalPaid < totalAmount - 0.01) {
       alert("El pago total es menor al monto de la venta.");
       return;
     }
 
     const totalCost = cartItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
-    
-    const saleItems = cartItems.map(item => ({
-      productId: item.id,
-      productName: item.name,
-      quantity: item.quantity,
-      unitPrice: item.sellingPrice,
-      unitCost: item.costPrice,
-      subtotal: item.sellingPrice * item.quantity
-    }));
-
-    // Primary method for backward compatibility (use the one with highest amount or first)
     const primaryPayment = payments.sort((a,b) => b.amount - a.amount)[0];
 
     const newSale: Sale = {
       id: uuidv4(),
       timestamp: Date.now(),
-      items: saleItems,
+      items: cartItems.map(item => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: item.quantity,
+        unitPrice: item.sellingPrice,
+        unitCost: item.costPrice,
+        subtotal: item.sellingPrice * item.quantity
+      })),
       totalAmount,
       totalProfit: totalAmount - totalCost,
       paymentMethodId: primaryPayment.methodId,
       paymentMethodName: payments.length > 1 ? 'Mixto/Multiple' : primaryPayment.methodName,
-      payments: payments, // Store full breakdown
+      payments: payments,
       invoice: invoiceData
     };
 
-    setSales([...sales, newSale]);
+    if (user) {
+      // --- Firestore Transaction/Batch ---
+      const batch = writeBatch(db);
+      
+      // 1. Create Sale
+      const saleRef = doc(db, 'users', user.uid, 'sales', newSale.id);
+      batch.set(saleRef, newSale);
 
-    // Update Stock
-    setProducts(prevProducts => prevProducts.map(p => {
-      const soldItem = cartItems.find(i => i.id === p.id);
-      if (soldItem) {
-        return { ...p, stock: p.stock - soldItem.quantity };
-      }
-      return p;
-    }));
+      // 2. Update Stock
+      cartItems.forEach(item => {
+        // Only update stock for real catalog items (not temporary variable price items created on fly if they don't have a real ID match in products array, though logic here assumes cartItems come from products)
+        // Note: For "Variable Price" items that are generic, we might not track stock, but assuming we do:
+        // We need to be careful if ID was modified (e.g. for unique cart items). 
+        // POS implementation: uniqueId = `${pendingProduct.id}-${Date.now()}`. We need original ID.
+        const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
+        
+        // Find current stock from state (optimistic) to calc new value. 
+        // Ideally we use increment(-qty) but stock is absolute number in Product interface.
+        // We will read current product state.
+        const productInDb = products.find(p => p.id === originalId);
+        if (productInDb) {
+           const productRef = doc(db, 'users', user.uid, 'products', originalId);
+           batch.update(productRef, { stock: productInDb.stock - item.quantity });
+        }
+      });
 
-    // Update Balances for MULTIPLE methods
-    setPaymentMethods(prevMethods => prevMethods.map(pm => {
-      const paymentInThisMethod = payments.find(p => p.methodId === pm.id);
-      if (paymentInThisMethod) {
-        return { ...pm, balance: pm.balance + paymentInThisMethod.amount };
-      }
-      return pm;
-    }));
+      // 3. Update Money (Balances)
+      payments.forEach(p => {
+         const method = paymentMethods.find(m => m.id === p.methodId);
+         if (method) {
+            const methodRef = doc(db, 'users', user.uid, 'paymentMethods', p.methodId);
+            batch.update(methodRef, { balance: method.balance + p.amount });
+         }
+      });
+
+      await batch.commit();
+
+    } else {
+      // --- Local Storage ---
+      const updatedSales = [...sales, newSale];
+      setSales(updatedSales);
+      saveLocal('sales', updatedSales);
+
+      const updatedProducts = products.map(p => {
+        const soldItem = cartItems.find(i => {
+           const originalId = i.id.includes('-') && i.isVariablePrice ? i.id.split('-')[0] : i.id;
+           return originalId === p.id;
+        });
+        if (soldItem) return { ...p, stock: p.stock - soldItem.quantity };
+        return p;
+      });
+      setProducts(updatedProducts);
+      saveLocal('products', updatedProducts);
+
+      const updatedMethods = paymentMethods.map(pm => {
+        const payment = payments.find(p => p.methodId === pm.id);
+        if (payment) return { ...pm, balance: pm.balance + payment.amount };
+        return pm;
+      });
+      setPaymentMethods(updatedMethods);
+      saveLocal('paymentMethods', updatedMethods);
+    }
 
     return newSale;
   };
 
-  const handleAddMethod = (name: string, type: PaymentMethod['type']) => {
+  const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
     const newMethod: PaymentMethod = { id: uuidv4(), name, type, balance: 0 };
-    setPaymentMethods([...paymentMethods, newMethod]);
+    
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), newMethod);
+    } else {
+      const updated = [...paymentMethods, newMethod];
+      setPaymentMethods(updated);
+      saveLocal('paymentMethods', updated);
+    }
   };
 
-  const handleUpdateMethod = (id: string, name: string, type: PaymentMethod['type']) => {
+  const handleUpdateMethod = async (id: string, name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
-    setPaymentMethods(prev => prev.map(pm => 
-      pm.id === id ? { ...pm, name, type } : pm
-    ));
+    
+    if (user) {
+      await updateDoc(doc(db, 'users', user.uid, 'paymentMethods', id), { name, type });
+    } else {
+      const updated = paymentMethods.map(pm => pm.id === id ? { ...pm, name, type } : pm);
+      setPaymentMethods(updated);
+      saveLocal('paymentMethods', updated);
+    }
   };
 
-  const handleDeleteMethod = (id: string) => {
+  const handleDeleteMethod = async (id: string) => {
     if (userRole !== 'ADMIN') return;
-    setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'paymentMethods', id));
+    } else {
+      const updated = paymentMethods.filter(pm => pm.id !== id);
+      setPaymentMethods(updated);
+      saveLocal('paymentMethods', updated);
+    }
   };
 
-  const handleTransfer = (fromId: string, toId: string, amount: number, note: string) => {
+  const handleTransfer = async (fromId: string, toId: string, amount: number, note: string) => {
     if (userRole !== 'ADMIN') return;
     const fromMethod = paymentMethods.find(m => m.id === fromId);
     const toMethod = paymentMethods.find(m => m.id === toId);
@@ -242,12 +345,6 @@ const App: React.FC = () => {
       return;
     }
 
-    setPaymentMethods(prev => prev.map(m => {
-      if (m.id === fromId) return { ...m, balance: m.balance - amount };
-      if (m.id === toId) return { ...m, balance: m.balance + amount };
-      return m;
-    }));
-
     const newTransfer: Transfer = {
       id: uuidv4(),
       timestamp: Date.now(),
@@ -256,16 +353,42 @@ const App: React.FC = () => {
       amount,
       note
     };
-    setTransfers([...transfers, newTransfer]);
+
+    if (user) {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', user.uid, 'transfers', newTransfer.id), newTransfer);
+      batch.update(doc(db, 'users', user.uid, 'paymentMethods', fromId), { balance: fromMethod.balance - amount });
+      batch.update(doc(db, 'users', user.uid, 'paymentMethods', toId), { balance: toMethod.balance + amount });
+      await batch.commit();
+    } else {
+      const updatedMethods = paymentMethods.map(m => {
+        if (m.id === fromId) return { ...m, balance: m.balance - amount };
+        if (m.id === toId) return { ...m, balance: m.balance + amount };
+        return m;
+      });
+      setPaymentMethods(updatedMethods);
+      saveLocal('paymentMethods', updatedMethods);
+
+      const updatedTransfers = [...transfers, newTransfer];
+      setTransfers(updatedTransfers);
+      saveLocal('transfers', updatedTransfers);
+    }
   };
 
-  const handleAddSupplier = (supplierData: Omit<Supplier, 'id' | 'balance'>) => {
+  const handleAddSupplier = async (supplierData: Omit<Supplier, 'id' | 'balance'>) => {
     if (userRole !== 'ADMIN') return;
     const newSupplier: Supplier = { ...supplierData, id: uuidv4(), balance: 0 };
-    setSuppliers([...suppliers, newSupplier]);
+    
+    if (user) {
+      await setDoc(doc(db, 'users', user.uid, 'suppliers', newSupplier.id), newSupplier);
+    } else {
+      const updated = [...suppliers, newSupplier];
+      setSuppliers(updated);
+      saveLocal('suppliers', updated);
+    }
   };
 
-  const handleAddExpense = (supplierId: string, amount: number, description: string, type: 'PURCHASE' | 'PAYMENT', paymentMethodId?: string) => {
+  const handleAddExpense = async (supplierId: string, amount: number, description: string, type: 'PURCHASE' | 'PAYMENT', paymentMethodId?: string) => {
     if (userRole !== 'ADMIN') return;
     const newExpense: Expense = {
       id: uuidv4(),
@@ -275,47 +398,99 @@ const App: React.FC = () => {
       description,
       type
     };
-    setExpenses([...expenses, newExpense]);
 
-    setSuppliers(prev => prev.map(s => {
-      if (s.id === supplierId) {
-        const delta = type === 'PURCHASE' ? amount : -amount;
-        return { ...s, balance: s.balance + delta };
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+
+    if (user) {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', user.uid, 'expenses', newExpense.id), newExpense);
+      
+      const delta = type === 'PURCHASE' ? amount : -amount;
+      batch.update(doc(db, 'users', user.uid, 'suppliers', supplierId), { balance: supplier.balance + delta });
+
+      if (type === 'PAYMENT' && paymentMethodId) {
+         const method = paymentMethods.find(m => m.id === paymentMethodId);
+         if (method) {
+            batch.update(doc(db, 'users', user.uid, 'paymentMethods', paymentMethodId), { balance: method.balance - amount });
+         }
       }
-      return s;
-    }));
+      await batch.commit();
 
-    if (type === 'PAYMENT' && paymentMethodId) {
-      setPaymentMethods(prev => prev.map(m => {
-        if (m.id === paymentMethodId) {
-          return { ...m, balance: m.balance - amount };
+    } else {
+      const updatedExpenses = [...expenses, newExpense];
+      setExpenses(updatedExpenses);
+      saveLocal('expenses', updatedExpenses);
+
+      const updatedSuppliers = suppliers.map(s => {
+        if (s.id === supplierId) {
+          const delta = type === 'PURCHASE' ? amount : -amount;
+          return { ...s, balance: s.balance + delta };
         }
-        return m;
-      }));
+        return s;
+      });
+      setSuppliers(updatedSuppliers);
+      saveLocal('suppliers', updatedSuppliers);
+
+      if (type === 'PAYMENT' && paymentMethodId) {
+        const updatedMethods = paymentMethods.map(m => {
+          if (m.id === paymentMethodId) {
+            return { ...m, balance: m.balance - amount };
+          }
+          return m;
+        });
+        setPaymentMethods(updatedMethods);
+        saveLocal('paymentMethods', updatedMethods);
+      }
     }
   };
+
+  // --- Settings & Profile Sync ---
+  const handleUpdateProfile = async (profile: StoreProfile) => {
+     if (user) {
+       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), { 
+         lowStockThreshold, 
+         storeProfile: profile 
+       }, { merge: true });
+     } else {
+       setStoreProfile(profile);
+       saveLocal('storeProfile', profile);
+     }
+  };
+
+  const handleUpdateThreshold = async (val: number) => {
+     if (user) {
+       await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), { 
+         lowStockThreshold: val, 
+         storeProfile 
+       }, { merge: true });
+     } else {
+       setLowStockThreshold(val);
+       saveLocal('lowStockThreshold', val);
+     }
+  };
+
 
   const handleLogout = () => {
     signOut(auth).then(() => {
         setIsGuestMode(false);
-        setUserRole('ADMIN'); // Reset to default
+        setUserRole('ADMIN');
+        // Clear state to avoid flash of previous user data
+        setProducts([]);
+        setSales([]);
     });
   };
 
-  // --- Role Switching Logic ---
   const toggleRole = () => {
     if (userRole === 'ADMIN') {
-      // Admin wants to become Seller: Check if PIN exists first
       if (!storeProfile.sellerPin || storeProfile.sellerPin.trim().length < 4) {
         alert("⚠️ Configuración Incompleta\n\nDebes definir un PIN de seguridad de 4 dígitos en la sección 'Configuración' antes de activar el Modo Vendedor.");
         setView('SETTINGS');
         return;
       }
-      
       setUserRole('SELLER');
-      setView('POS'); // Default view for seller
+      setView('POS'); 
     } else {
-      // Seller wants to become Admin: Ask for PIN
       setShowPinModal(true);
       setPinInput('');
       setPinError(false);
@@ -324,9 +499,7 @@ const App: React.FC = () => {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Allow unlock if PIN matches OR if no PIN was set (rescue mode with 0000)
     const isCorrect = pinInput === storeProfile.sellerPin || (!storeProfile.sellerPin && pinInput === '0000');
-    
     if (isCorrect) {
       setUserRole('ADMIN');
       setShowPinModal(false);
@@ -336,7 +509,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Loading State
   if (authLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-900">
@@ -345,7 +517,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Auth Guard
   if (!user && !isGuestMode) {
     return <Auth onGuestLogin={() => setIsGuestMode(true)} />;
   }
@@ -367,7 +538,7 @@ const App: React.FC = () => {
             onUpdateProduct={handleUpdateProduct} 
             onDeleteProduct={handleDeleteProduct}
             lowStockThreshold={lowStockThreshold}
-            onUpdateThreshold={setLowStockThreshold}
+            onUpdateThreshold={handleUpdateThreshold}
             isReadOnly={userRole === 'SELLER'}
           />
         );
@@ -387,7 +558,7 @@ const App: React.FC = () => {
       case 'REPORTS':
         return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
       case 'SETTINGS':
-        return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={setStoreProfile} /> : null;
+        return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} /> : null;
       default:
         return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
     }
