@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Truck, Plus, DollarSign, FileText, ChevronRight, Phone, Mail } from 'lucide-react';
 import { Supplier, Expense, PaymentMethod } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 
 interface SuppliersProps {
   suppliers: Supplier[];

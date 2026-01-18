@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users } from 'lucide-react';
 import { ViewState, UserRole } from '../types';
 
 interface LayoutProps {
@@ -10,7 +10,7 @@ interface LayoutProps {
   isGuest?: boolean;
   onLogout: () => void;
   userRole: UserRole;
-  onToggleRole: () => void; // Trigger role switch (ask for PIN if going SELLER -> ADMIN)
+  onToggleRole: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole }) => {
@@ -20,6 +20,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
   const allNavItems: { id: ViewState; label: string; icon: React.ReactNode; roles: UserRole[] }[] = [
     { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'POS', label: 'Vender', icon: <ShoppingCart size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'CUSTOMERS', label: 'Clientes', icon: <Users size={20} />, roles: ['ADMIN', 'SELLER'] }, // New v3.0
     { id: 'HISTORY', label: 'Historial', icon: <History size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} />, roles: ['ADMIN'] },
@@ -60,12 +61,12 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
           <div>
             <h1 className="font-bold text-lg leading-none">KioscoPro</h1>
             <span className={`text-xs font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
-               {userRole === 'ADMIN' ? 'Administrador' : 'Modo Vendedor'}
+               {userRole === 'ADMIN' ? 'v3.0 Admin' : 'v3.0 Vendedor'}
             </span>
           </div>
         </div>
 
-        <nav className="flex-1 py-6 px-3 space-y-1">
+        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto custom-scrollbar">
           {visibleNavItems.map((item) => (
             <button
               key={item.id}

@@ -6,13 +6,14 @@ export interface Product {
   stock: number;
   category: string;
   barcode?: string;
-  isVariablePrice?: boolean; // If true, price is set at POS time (e.g. Fiambrería)
+  isVariablePrice?: boolean; 
+  isFavorite?: boolean; // New v3.0: Quick access in POS
 }
 
 export interface PaymentMethod {
   id: string;
   name: string;
-  type: 'CASH' | 'CARD' | 'DIGITAL' | 'OTHER';
+  type: 'CASH' | 'CARD' | 'DIGITAL' | 'OTHER' | 'CREDIT'; // CREDIT added for "Fiado"
   balance: number;
 }
 
@@ -36,8 +37,8 @@ export interface InvoiceData {
   clientCuit: string;
   clientAddress: string;
   conditionIva: 'Resp. Inscripto' | 'Monotributista' | 'Consumidor Final' | 'Exento';
-  cae?: string; // Simulated
-  caeVto?: string; // Simulated
+  cae?: string;
+  caeVto?: string;
 }
 
 export interface PaymentDetail {
@@ -48,14 +49,27 @@ export interface PaymentDetail {
 
 export interface Sale {
   id: string;
-  timestamp: number; // Unix timestamp
+  timestamp: number;
   items: SaleItem[];
   totalAmount: number;
   totalProfit: number;
-  paymentMethodId: string; // Deprecated but kept for backward compatibility (primary method)
-  paymentMethodName: string; // Deprecated but kept for backward compatibility
-  payments?: PaymentDetail[]; // New: Supports split payments
+  paymentMethodId: string;
+  paymentMethodName: string;
+  payments?: PaymentDetail[];
   invoice?: InvoiceData;
+  customerId?: string; // New v3.0
+  status?: 'COMPLETED' | 'PENDING_PAYMENT'; // New v3.0: PENDING_PAYMENT = Fiado
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  dni?: string;
+  address?: string;
+  balance: number; // Positive means they owe us money
+  lastPurchaseDate?: number;
+  notes?: string;
 }
 
 export interface Transfer {
@@ -73,7 +87,7 @@ export interface Supplier {
   cuit: string;
   phone?: string;
   email?: string;
-  balance: number; // Positive means we owe them money
+  balance: number;
 }
 
 export interface Expense {
@@ -82,7 +96,7 @@ export interface Expense {
   date: number;
   amount: number;
   description: string;
-  type: 'PURCHASE' | 'PAYMENT'; // Purchase increases debt, Payment decreases it
+  type: 'PURCHASE' | 'PAYMENT';
 }
 
 export interface StoreProfile {
@@ -94,14 +108,21 @@ export interface StoreProfile {
   iibb: string;
   startDate: string;
   ivaCondition: string;
-  sellerPin?: string; // PIN to exit seller mode
+  sellerPin?: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS';
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS';
 
 export type UserRole = 'ADMIN' | 'SELLER';
 
 export interface DateRange {
-  start: number; // Unix timestamp
-  end: number; // Unix timestamp
+  start: number;
+  end: number;
+}
+
+export interface SuspendedSale {
+  id: string;
+  timestamp: number;
+  items: CartItem[];
+  note?: string;
 }
