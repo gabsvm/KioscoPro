@@ -96,9 +96,18 @@ const App: React.FC = () => {
       const unsubs = [
         onSnapshot(collection(db, 'users', userId, 'products'), (snap) => setProducts(snap.docs.map(d => d.data() as Product))),
         onSnapshot(collection(db, 'users', userId, 'sales'), (snap) => setSales(snap.docs.map(d => d.data() as Sale))),
-        onSnapshot(collection(db, 'users', userId, 'paymentMethods'), (snap) => {
+        onSnapshot(collection(db, 'users', userId, 'paymentMethods'), async (snap) => {
           const data = snap.docs.map(d => d.data() as PaymentMethod);
-          if (data.length > 0) setPaymentMethods(data);
+          if (data.length > 0) {
+            setPaymentMethods(data);
+          } else {
+            // Inicializar métodos de pago por defecto para nuevos usuarios
+            const batch = writeBatch(db);
+            initialPaymentMethods.forEach(pm => {
+              batch.set(doc(db, 'users', userId, 'paymentMethods', pm.id), sanitizeForFirestore(pm));
+            });
+            await batch.commit();
+          }
         }),
         onSnapshot(collection(db, 'users', userId, 'transfers'), (snap) => setTransfers(snap.docs.map(d => d.data() as Transfer))),
         onSnapshot(collection(db, 'users', userId, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => d.data() as Supplier))),
@@ -206,12 +215,21 @@ const App: React.FC = () => {
   const handleBulkAddProducts = async (newProducts: Omit<Product, 'id'>[]) => {
     if (userRole !== 'ADMIN') return;
     if (user) {
-      const chunkSize = 400;
-      for (let i = 0; i < newProducts.length; i += chunkSize) {
-        const chunk = newProducts.slice(i, i + chunkSize);
-        const batch = writeBatch(db);
-        chunk.forEach(p => batch.set(doc(db, 'users', user.uid, 'products', uuidv4()), sanitizeForFirestore({ ...p, id: uuidv4() })));
-        await batch.commit();
+      try {
+        const chunkSize = 400;
+        for (let i = 0; i < newProducts.length; i += chunkSize) {
+          const chunk = newProducts.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach(p => {
+            const id = uuidv4();
+            batch.set(doc(db, 'users', user.uid, 'products', id), sanitizeForFirestore({ ...p, id }));
+          });
+          await batch.commit();
+        }
+        alert("¡Productos importados exitosamente!");
+      } catch (error) {
+        console.error("Error importing products:", error);
+        alert("Error al importar productos a la nube.");
       }
     } else {
       const u = [...products, ...newProducts.map(p => ({ ...p, id: uuidv4() }))];
@@ -261,23 +279,30 @@ const App: React.FC = () => {
         const batch = writeBatch(db);
         batch.set(doc(db, 'users', user.uid, 'sales', newSale.id), sanitizeForFirestore(newSale));
 
-        cartItems.forEach(item => {
+        for (const item of cartItems) {
           const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
           const productInDb = products.find(p => p.id === originalId);
           if (productInDb) {
              const currentStock = Number(productInDb.stock) || 0;
-             batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: currentStock - item.quantity }, { merge: true });
+             batch.update(doc(db, 'users', user.uid, 'products', originalId), { stock: currentStock - item.quantity });
           }
-        });
+        }
 
         if (!isCredit) {
-           payments.forEach(p => {
+           for (const p of payments) {
              const method = paymentMethods.find(m => m.id === p.methodId);
-             if (method) batch.set(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: (Number(method.balance)||0) + p.amount }, { merge: true });
-           });
+             if (method) {
+               batch.update(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: (Number(method.balance)||0) + p.amount });
+             }
+           }
         } else if (customerId) {
            const customer = customers.find(c => c.id === customerId);
-           if (customer) batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: (Number(customer.balance)||0) + totalAmount, lastPurchaseDate: Date.now() }, { merge: true });
+           if (customer) {
+             batch.update(doc(db, 'users', user.uid, 'customers', customerId), { 
+               balance: (Number(customer.balance)||0) + totalAmount, 
+               lastPurchaseDate: Date.now() 
+             });
+           }
         }
 
         await batch.commit();
@@ -348,8 +373,16 @@ const App: React.FC = () => {
   const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
     const newMethod = { id: uuidv4(), name, type, balance: 0 };
-    if (user) await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
-    else { const u = [...paymentMethods, newMethod]; setPaymentMethods(u); saveLocal('paymentMethods', u); }
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
+      } catch (error) {
+        console.error("Error adding payment method:", error);
+        alert("Error al crear la caja en la nube.");
+      }
+    } else {
+      const u = [...paymentMethods, newMethod]; setPaymentMethods(u); saveLocal('paymentMethods', u);
+    }
   };
   const handleUpdateMethod = async (id: string, name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
