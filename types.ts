@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -79,6 +80,17 @@ export interface Transfer {
   toMethodId: string;
   amount: number;
   note?: string;
+}
+
+export interface CashMovement {
+  id: string;
+  timestamp: number;
+  type: 'INCOME' | 'EXPENSE'; // INGRESO (Inyeccion) o GASTO (Retiro)
+  amount: number;
+  description: string;
+  methodId: string;
+  methodName: string;
+  userId?: string; // Who made the movement
 }
 
 export interface Supplier {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -10,7 +11,7 @@ import SalesHistory from './components/SalesHistory';
 import Settings from './components/Settings';
 import Customers from './components/Customers'; // New v3.0
 import Auth from './components/Auth';
-import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer } from './types';
+import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc } from 'firebase/firestore';
@@ -69,6 +70,7 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [cashMovements, setCashMovements] = useState<CashMovement[]>([]); // New v3.1
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]); // New v3.0
@@ -96,20 +98,12 @@ const App: React.FC = () => {
       const unsubs = [
         onSnapshot(collection(db, 'users', userId, 'products'), (snap) => setProducts(snap.docs.map(d => d.data() as Product))),
         onSnapshot(collection(db, 'users', userId, 'sales'), (snap) => setSales(snap.docs.map(d => d.data() as Sale))),
-        onSnapshot(collection(db, 'users', userId, 'paymentMethods'), async (snap) => {
+        onSnapshot(collection(db, 'users', userId, 'paymentMethods'), (snap) => {
           const data = snap.docs.map(d => d.data() as PaymentMethod);
-          if (data.length > 0) {
-            setPaymentMethods(data);
-          } else {
-            // Inicializar métodos de pago por defecto para nuevos usuarios
-            const batch = writeBatch(db);
-            initialPaymentMethods.forEach(pm => {
-              batch.set(doc(db, 'users', userId, 'paymentMethods', pm.id), sanitizeForFirestore(pm));
-            });
-            await batch.commit();
-          }
+          if (data.length > 0) setPaymentMethods(data);
         }),
         onSnapshot(collection(db, 'users', userId, 'transfers'), (snap) => setTransfers(snap.docs.map(d => d.data() as Transfer))),
+        onSnapshot(collection(db, 'users', userId, 'cashMovements'), (snap) => setCashMovements(snap.docs.map(d => d.data() as CashMovement))), // Sync Movements
         onSnapshot(collection(db, 'users', userId, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => d.data() as Supplier))),
         onSnapshot(collection(db, 'users', userId, 'expenses'), (snap) => setExpenses(snap.docs.map(d => d.data() as Expense))),
         onSnapshot(collection(db, 'users', userId, 'customers'), (snap) => setCustomers(snap.docs.map(d => d.data() as Customer))), // New v3.0
@@ -136,6 +130,7 @@ const App: React.FC = () => {
       setSales(load('sales', []));
       setPaymentMethods(load('paymentMethods', initialPaymentMethods));
       setTransfers(load('transfers', []));
+      setCashMovements(load('cashMovements', []));
       setSuppliers(load('suppliers', []));
       setExpenses(load('expenses', []));
       setCustomers(load('customers', []));
@@ -168,6 +163,7 @@ const App: React.FC = () => {
       const localMethods = loadLocal('paymentMethods');
       const localSuppliers = loadLocal('suppliers');
       const localCustomers = loadLocal('customers'); // v3.0
+      const localMovements = loadLocal('cashMovements'); // v3.1
       const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
 
       const batchLimit = 250; 
@@ -192,6 +188,8 @@ const App: React.FC = () => {
       if (count >= batchLimit) await commitBatch();
       localCustomers.forEach((c: any) => { addToBatch(doc(db, 'users', user.uid, 'customers', c.id), c); }); // v3.0
       if (count >= batchLimit) await commitBatch();
+      localMovements.forEach((m: any) => { addToBatch(doc(db, 'users', user.uid, 'cashMovements', m.id), m); }); // v3.1
+      if (count >= batchLimit) await commitBatch();
       
       if (localProfile) {
         batch.set(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ storeProfile: localProfile, lowStockThreshold: 5 }), { merge: true });
@@ -215,21 +213,12 @@ const App: React.FC = () => {
   const handleBulkAddProducts = async (newProducts: Omit<Product, 'id'>[]) => {
     if (userRole !== 'ADMIN') return;
     if (user) {
-      try {
-        const chunkSize = 400;
-        for (let i = 0; i < newProducts.length; i += chunkSize) {
-          const chunk = newProducts.slice(i, i + chunkSize);
-          const batch = writeBatch(db);
-          chunk.forEach(p => {
-            const id = uuidv4();
-            batch.set(doc(db, 'users', user.uid, 'products', id), sanitizeForFirestore({ ...p, id }));
-          });
-          await batch.commit();
-        }
-        alert("¡Productos importados exitosamente!");
-      } catch (error) {
-        console.error("Error importing products:", error);
-        alert("Error al importar productos a la nube.");
+      const chunkSize = 400;
+      for (let i = 0; i < newProducts.length; i += chunkSize) {
+        const chunk = newProducts.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(p => batch.set(doc(db, 'users', user.uid, 'products', uuidv4()), sanitizeForFirestore({ ...p, id: uuidv4() })));
+        await batch.commit();
       }
     } else {
       const u = [...products, ...newProducts.map(p => ({ ...p, id: uuidv4() }))];
@@ -279,30 +268,23 @@ const App: React.FC = () => {
         const batch = writeBatch(db);
         batch.set(doc(db, 'users', user.uid, 'sales', newSale.id), sanitizeForFirestore(newSale));
 
-        for (const item of cartItems) {
+        cartItems.forEach(item => {
           const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
           const productInDb = products.find(p => p.id === originalId);
           if (productInDb) {
              const currentStock = Number(productInDb.stock) || 0;
-             batch.update(doc(db, 'users', user.uid, 'products', originalId), { stock: currentStock - item.quantity });
+             batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: currentStock - item.quantity }, { merge: true });
           }
-        }
+        });
 
         if (!isCredit) {
-           for (const p of payments) {
+           payments.forEach(p => {
              const method = paymentMethods.find(m => m.id === p.methodId);
-             if (method) {
-               batch.update(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: (Number(method.balance)||0) + p.amount });
-             }
-           }
+             if (method) batch.set(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: (Number(method.balance)||0) + p.amount }, { merge: true });
+           });
         } else if (customerId) {
            const customer = customers.find(c => c.id === customerId);
-           if (customer) {
-             batch.update(doc(db, 'users', user.uid, 'customers', customerId), { 
-               balance: (Number(customer.balance)||0) + totalAmount, 
-               lastPurchaseDate: Date.now() 
-             });
-           }
+           if (customer) batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: (Number(customer.balance)||0) + totalAmount, lastPurchaseDate: Date.now() }, { merge: true });
         }
 
         await batch.commit();
@@ -369,20 +351,52 @@ const App: React.FC = () => {
     }
   };
 
+  // --- CASH MOVEMENTS v3.1 ---
+  const handleCashMovement = async (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => {
+    const method = paymentMethods.find(m => m.id === methodId);
+    if (!method) return;
+    
+    // Check balance for expense
+    if (type === 'EXPENSE' && method.balance < amount) {
+       alert("No hay suficiente saldo en esta caja para realizar el retiro.");
+       return;
+    }
+
+    const movement: CashMovement = {
+      id: uuidv4(),
+      timestamp: Date.now(),
+      type,
+      amount,
+      description,
+      methodId,
+      methodName: method.name,
+      userId: user?.uid || 'guest'
+    };
+
+    if (user) {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', user.uid, 'cashMovements', movement.id), sanitizeForFirestore(movement));
+      const newBalance = type === 'INCOME' ? method.balance + amount : method.balance - amount;
+      batch.set(doc(db, 'users', user.uid, 'paymentMethods', methodId), { balance: newBalance }, { merge: true });
+      await batch.commit();
+    } else {
+      const uMovements = [...cashMovements, movement]; setCashMovements(uMovements); saveLocal('cashMovements', uMovements);
+      const uMethods = paymentMethods.map(m => {
+        if (m.id === methodId) {
+           return { ...m, balance: type === 'INCOME' ? m.balance + amount : m.balance - amount };
+        }
+        return m;
+      });
+      setPaymentMethods(uMethods); saveLocal('paymentMethods', uMethods);
+    }
+  };
+
   // --- Other Actions ---
   const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
     const newMethod = { id: uuidv4(), name, type, balance: 0 };
-    if (user) {
-      try {
-        await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
-      } catch (error) {
-        console.error("Error adding payment method:", error);
-        alert("Error al crear la caja en la nube.");
-      }
-    } else {
-      const u = [...paymentMethods, newMethod]; setPaymentMethods(u); saveLocal('paymentMethods', u);
-    }
+    if (user) await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
+    else { const u = [...paymentMethods, newMethod]; setPaymentMethods(u); saveLocal('paymentMethods', u); }
   };
   const handleUpdateMethod = async (id: string, name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
@@ -479,7 +493,7 @@ const App: React.FC = () => {
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} /> : null;
-      case 'FINANCE': return userRole === 'ADMIN' ? <Finance paymentMethods={paymentMethods} transfers={transfers} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} /> : null;
+      case 'FINANCE': return userRole === 'ADMIN' ? <Finance paymentMethods={paymentMethods} transfers={transfers} cashMovements={cashMovements} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} onAddCashMovement={handleCashMovement} /> : null;
       case 'REPORTS': return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
       case 'SETTINGS': return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} onMigrateData={user ? handleMigrateData : undefined} /> : null;
       default: return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;

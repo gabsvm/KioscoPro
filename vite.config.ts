@@ -3,9 +3,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    allowedHosts: true,
-  },
   define: {
     // Inject environment variables safely during build
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
