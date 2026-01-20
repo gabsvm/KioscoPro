@@ -44,9 +44,9 @@
     "firebase/firestore": "https://esm.sh/firebase@10.8.1/firestore",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "uuid": "https://esm.sh/uuid@9.0.1",
-    "firebase/": "https://esm.sh/firebase@^12.8.0/",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
@@ -82,20 +82,16 @@
     <script type="module" src="./index.tsx"></script>
     
     <script>
-      // Service Worker registration with environment check to avoid console noise in preview
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Check if we are in a secure context or localhost before trying to register
-          if (window.location.hostname === 'localhost' || window.location.protocol === 'https:') {
-             navigator.serviceWorker.register('./sw.js')
-              .then(registration => {
-                console.log('SW registered');
-              })
-              .catch(err => {
-                // Squelch error in preview environments to avoid confusion
-                console.log('SW registration skipped or failed (expected in preview iframe)');
-              });
-          }
+           // Registramos el SW en la raíz para capturar todas las rutas
+           navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('SW registered on root scope');
+            })
+            .catch(err => {
+              console.log('SW registration failed:', err);
+            });
         });
       }
     </script>

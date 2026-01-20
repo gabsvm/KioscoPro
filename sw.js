@@ -1,8 +1,9 @@
 
-const CACHE_NAME = 'kioscopro-cache-v2';
+const CACHE_NAME = 'kioscopro-v4-vercel';
+// Usamos rutas absolutas para Vercel
 const ASSETS = [
-  './',
-  './index.html',
+  '/',
+  '/index.html',
   'https://cdn.tailwindcss.com'
 ];
 
@@ -29,21 +30,33 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  
-  // Estrategia: Cache First, falling back to Network
+  const request = event.request;
+
+  // Estrategia para navegación (HTML): Network First, pero con fallback a caché si hay error 404/500
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Si Vercel devuelve 404 (porque la ruta no es un archivo real) o OK, verificamos
+          // Si es OK, devolvemos la respuesta de red
+          if (response.ok) {
+            return response;
+          }
+          // Si es 404 o 500, lanzamos error para caer en el catch y servir el caché
+          throw new Error('Server returned error (SPA routing)');
+        })
+        .catch(() => {
+          // Si hay error de red u error del servidor (404), devolvemos el App Shell (index.html)
+          return caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
+  // Para otros recursos (imágenes, scripts, css)
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        // Fallback simple para cuando no hay red y no está en caché
-        return new Response('Offline - Sin conexión. Verifica tu internet.', {
-          status: 503,
-          statusText: 'Service Unavailable'
-        });
-      });
+    caches.match(request).then((cachedResponse) => {
+      return cachedResponse || fetch(request).catch(() => null);
     })
   );
 });
