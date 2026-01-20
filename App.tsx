@@ -61,7 +61,17 @@ const App: React.FC = () => {
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState<ViewState>('DASHBOARD');
-  const [userRole, setUserRole] = useState<UserRole>('ADMIN');
+  
+  // Initialize userRole from localStorage to persist mode across reloads
+  const [userRole, setUserRole] = useState<UserRole>(() => {
+    try {
+      const saved = window.localStorage.getItem('kiosco_user_role');
+      return (saved === 'SELLER' || saved === 'ADMIN') ? saved : 'ADMIN';
+    } catch (e) {
+      return 'ADMIN';
+    }
+  });
+
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -90,6 +100,15 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // --- Persist User Role ---
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('kiosco_user_role', userRole);
+    } catch (e) {
+      console.error("Error saving role preference", e);
+    }
+  }, [userRole]);
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -493,7 +512,13 @@ const App: React.FC = () => {
      if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ lowStockThreshold: val, storeProfile }), { merge: true });
      else { setLowStockThreshold(val); saveLocal('lowStockThreshold', val); }
   };
-  const handleLogout = () => signOut(auth).then(() => { setIsGuestMode(false); setUserRole('ADMIN'); });
+  
+  // LOGOUT (Does NOT reset userRole to ADMIN to maintain lock)
+  const handleLogout = () => signOut(auth).then(() => { 
+    setIsGuestMode(false); 
+    // We intentionally do NOT reset userRole to 'ADMIN' here.
+    // This allows the device to stay in 'SELLER' mode if configured.
+  });
 
   const toggleRole = () => {
     if (userRole === 'ADMIN') {
