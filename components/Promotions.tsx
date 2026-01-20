@@ -20,6 +20,9 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
   const [selectedProductId, setSelectedProductId] = useState('');
   const [triggerQty, setTriggerQty] = useState('');
   const [promoPrice, setPromoPrice] = useState('');
+  
+  // Product Selector Search
+  const [productSearch, setProductSearch] = useState('');
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,15 +37,30 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
     });
 
     setShowModal(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setPromoName('');
     setSelectedProductId('');
     setTriggerQty('');
     setPromoPrice('');
+    setProductSearch('');
   };
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
-  const filteredPromotions = promotions.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Filter existing promotions by promo name OR product name
+  const filteredPromotions = promotions.filter(p => {
+    const product = products.find(prod => prod.id === p.productId);
+    const term = searchTerm.toLowerCase();
+    return p.name.toLowerCase().includes(term) || (product && product.name.toLowerCase().includes(term));
+  });
+
+  // Filter products in the modal dropdown
+  const filteredProductsForSelect = products.filter(p => 
+    p.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col gap-6">
@@ -54,7 +72,7 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
            <p className="text-slate-500 text-sm">Configura descuentos automáticos por cantidad.</p>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => { setShowModal(true); resetForm(); }}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md transition-colors"
         >
           <Plus size={20} /> Nueva Promo
@@ -68,7 +86,7 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
              <input 
                type="text" 
-               placeholder="Buscar promoción..." 
+               placeholder="Buscar promoción o producto..." 
                value={searchTerm}
                onChange={e => setSearchTerm(e.target.value)}
                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -131,7 +149,7 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
            {filteredPromotions.length === 0 && (
              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400">
                 <Tag size={48} className="mb-4 opacity-20" />
-                <p>No hay promociones configuradas.</p>
+                <p>No hay promociones coincidentes.</p>
              </div>
            )}
         </div>
@@ -161,17 +179,30 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
 
                   <div>
                      <label className="text-xs font-bold text-slate-500 uppercase">Producto</label>
-                     <select 
-                       required
-                       value={selectedProductId}
-                       onChange={e => setSelectedProductId(e.target.value)}
-                       className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                     >
-                        <option value="">Seleccionar Producto...</option>
-                        {products.map(p => (
-                           <option key={p.id} value={p.id}>{p.name} (Actual: ${p.sellingPrice})</option>
-                        ))}
-                     </select>
+                     <div className="mt-1 border rounded-lg overflow-hidden bg-white">
+                        <div className="p-2 border-b bg-slate-50 flex items-center gap-2">
+                           <Search size={14} className="text-slate-400" />
+                           <input 
+                              type="text" 
+                              placeholder="Filtrar productos..."
+                              value={productSearch}
+                              onChange={e => setProductSearch(e.target.value)}
+                              className="bg-transparent outline-none text-sm w-full"
+                           />
+                        </div>
+                        <select 
+                          required
+                          size={5}
+                          value={selectedProductId}
+                          onChange={e => setSelectedProductId(e.target.value)}
+                          className="w-full px-2 py-2 outline-none bg-white text-sm"
+                        >
+                           {filteredProductsForSelect.length === 0 && <option disabled>No hay productos coincidentes</option>}
+                           {filteredProductsForSelect.map(p => (
+                              <option key={p.id} value={p.id} className="py-1">{p.name} (Actual: ${p.sellingPrice})</option>
+                           ))}
+                        </select>
+                     </div>
                   </div>
                   
                   {selectedProduct && (

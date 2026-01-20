@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion } from '../types';
 import InvoiceModal from './InvoiceModal';
@@ -16,7 +16,7 @@ interface POSProps {
 const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotions, onCompleteSale, storeProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('FAVORITES'); // Start with favorites
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showCheckout, setShowCheckout] = useState(false);
   const [mobileView, setMobileView] = useState<'CATALOG' | 'CART'>('CATALOG');
   
@@ -30,7 +30,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   const [manualPriceInput, setManualPriceInput] = useState('');
 
   // Payment State
-  const [selectedMethod, setSelectedMethod] = useState<string>(''); // Will init in useEffect
+  const [selectedMethod, setSelectedMethod] = useState<string>('');
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
   
@@ -54,30 +54,34 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
     }
   }, [paymentMethods]);
 
-  // --- Logic for Promotions ---
-  const getApplicablePromotion = (item: CartItem): Promotion | null => {
-    // 1. Find promos for this product
-    const applicable = promotions.filter(p => p.isActive && p.productId === (item.id.includes('-') ? item.id.split('-')[0] : item.id));
+  // --- Logic for Promotions (Robust) ---
+  const getApplicablePromotion = useCallback((item: CartItem): Promotion | null => {
+    // 1. Find promos for this product ID (clean ID logic)
+    const cleanId = item.id.includes('-') ? item.id.split('-')[0] : item.id;
+    
+    // Filter applicable active promotions for this product
+    const applicable = promotions.filter(p => p.isActive && p.productId === cleanId);
+    
     if (applicable.length === 0) return null;
 
-    // 2. Sort by trigger quantity desc to find best tier (e.g., buy 10 is better than buy 3)
-    // For now, we assume one promo per product usually, but let's be safe
+    // 2. Find best tier (Highest trigger quantity that is satisfied)
+    // Force Number() conversion to avoid string comparison issues
     const bestPromo = applicable
-       .filter(p => item.quantity >= p.triggerQuantity)
-       .sort((a, b) => b.triggerQuantity - a.triggerQuantity)[0];
+       .filter(p => item.quantity >= Number(p.triggerQuantity))
+       .sort((a, b) => Number(b.triggerQuantity) - Number(a.triggerQuantity))[0];
     
     return bestPromo || null;
-  };
+  }, [promotions]);
 
-  const calculateItemTotal = (item: CartItem) => {
+  const calculateItemTotal = useCallback((item: CartItem) => {
      const promo = getApplicablePromotion(item);
-     const price = promo ? promo.promotionalPrice : item.sellingPrice;
+     const price = promo ? Number(promo.promotionalPrice) : item.sellingPrice;
      return price * item.quantity;
-  };
+  }, [getApplicablePromotion]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((acc, item) => acc + calculateItemTotal(item), 0);
-  }, [cart, promotions]);
+  }, [cart, calculateItemTotal]);
 
   const totalSplitEntered = useMemo(() => {
     return (Object.values(splitAmounts) as string[]).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
@@ -183,7 +187,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
       if (promo) {
         return {
           ...item,
-          sellingPrice: promo.promotionalPrice, // Update price to promo price
+          sellingPrice: Number(promo.promotionalPrice), // Update price to promo price
           appliedPromotionId: promo.id
         };
       }
@@ -335,30 +339,34 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
               const total = calculateItemTotal(item);
               
               return (
-                <div key={item.id} className={`flex flex-col bg-white p-2 rounded-lg border ${promo ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100'}`}>
+                <div key={item.id} className={`flex flex-col bg-white p-2 rounded-lg border transition-colors ${promo ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 overflow-hidden">
                       <h4 className="text-sm font-medium text-slate-800 truncate">{item.name}</h4>
-                      <div className="text-xs text-brand-600 font-bold flex items-center gap-2">
+                      
+                      <div className="text-xs text-brand-600 font-bold flex items-center gap-2 mt-0.5">
                          {item.isVariablePrice ? (
                             `$${item.sellingPrice.toFixed(2)}`
                          ) : promo ? (
-                            <>
-                               <span className="line-through text-slate-400 decoration-slate-400">${(item.sellingPrice * item.quantity).toFixed(2)}</span>
-                               <span className="text-emerald-600 font-extrabold flex items-center gap-1">
-                                  ${total.toFixed(2)} <Tag size={10} />
-                               </span>
-                            </>
+                            <div className="flex flex-col items-start leading-none gap-1">
+                               <div>
+                                  <span className="line-through text-slate-400 decoration-slate-400 mr-2">${(item.sellingPrice * item.quantity).toFixed(2)}</span>
+                                  <span className="text-emerald-600 font-extrabold text-sm">${total.toFixed(2)}</span>
+                               </div>
+                            </div>
                          ) : (
                             `$${total.toFixed(2)}`
                          )}
                       </div>
+                      
                       {promo && (
-                         <div className="text-[10px] text-indigo-600 font-bold mt-0.5">
-                            Promo: {promo.name}
+                         <div className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-1 rounded mt-1 flex justify-between items-center font-bold">
+                            <span className="flex items-center gap-1"><Tag size={10} /> {promo.name}</span>
+                            <span>${promo.promotionalPrice}/u</span>
                          </div>
                       )}
                     </div>
+                    
                     <div className="flex items-center gap-1 md:gap-2 bg-slate-100 rounded-lg p-1 h-8">
                       <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded" disabled={!!item.isVariablePrice}><Minus size={14} /></button>
                       <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
