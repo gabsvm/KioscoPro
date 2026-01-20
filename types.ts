@@ -11,6 +11,15 @@ export interface Product {
   isFavorite?: boolean; // New v3.0: Quick access in POS
 }
 
+export interface Promotion {
+  id: string;
+  name: string; // ej: "3x Harina"
+  productId: string;
+  triggerQuantity: number; // ej: 3
+  promotionalPrice: number; // ej: 1500 (precio unitario al activar promo)
+  isActive: boolean;
+}
+
 export interface PaymentMethod {
   id: string;
   name: string;
@@ -20,6 +29,7 @@ export interface PaymentMethod {
 
 export interface CartItem extends Product {
   quantity: number;
+  appliedPromotionId?: string; // Para saber si se aplicó promo
 }
 
 export interface SaleItem {
@@ -29,6 +39,7 @@ export interface SaleItem {
   unitPrice: number;
   unitCost: number;
   subtotal: number;
+  isPromo?: boolean;
 }
 
 export interface InvoiceData {
@@ -123,7 +134,7 @@ export interface StoreProfile {
   sellerPin?: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS';
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS';
 
 export type UserRole = 'ADMIN' | 'SELLER';
 

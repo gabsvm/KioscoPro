@@ -9,9 +9,10 @@ import Reports from './components/Reports';
 import Suppliers from './components/Suppliers';
 import SalesHistory from './components/SalesHistory';
 import Settings from './components/Settings';
-import Customers from './components/Customers'; // New v3.0
+import Customers from './components/Customers';
+import Promotions from './components/Promotions'; // New v3.2
 import Auth from './components/Auth';
-import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement } from './types';
+import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement, Promotion } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc } from 'firebase/firestore';
@@ -70,10 +71,11 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [cashMovements, setCashMovements] = useState<CashMovement[]>([]); // New v3.1
+  const [cashMovements, setCashMovements] = useState<CashMovement[]>([]); 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]); // New v3.0
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]); // New v3.2
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
   const [storeProfile, setStoreProfile] = useState<StoreProfile>(initialStoreProfile);
 
@@ -103,10 +105,11 @@ const App: React.FC = () => {
           if (data.length > 0) setPaymentMethods(data);
         }),
         onSnapshot(collection(db, 'users', userId, 'transfers'), (snap) => setTransfers(snap.docs.map(d => d.data() as Transfer))),
-        onSnapshot(collection(db, 'users', userId, 'cashMovements'), (snap) => setCashMovements(snap.docs.map(d => d.data() as CashMovement))), // Sync Movements
+        onSnapshot(collection(db, 'users', userId, 'cashMovements'), (snap) => setCashMovements(snap.docs.map(d => d.data() as CashMovement))),
         onSnapshot(collection(db, 'users', userId, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => d.data() as Supplier))),
         onSnapshot(collection(db, 'users', userId, 'expenses'), (snap) => setExpenses(snap.docs.map(d => d.data() as Expense))),
-        onSnapshot(collection(db, 'users', userId, 'customers'), (snap) => setCustomers(snap.docs.map(d => d.data() as Customer))), // New v3.0
+        onSnapshot(collection(db, 'users', userId, 'customers'), (snap) => setCustomers(snap.docs.map(d => d.data() as Customer))),
+        onSnapshot(collection(db, 'users', userId, 'promotions'), (snap) => setPromotions(snap.docs.map(d => d.data() as Promotion))), // New v3.2
         onSnapshot(doc(db, 'users', userId, 'settings', 'config'), (snap) => {
           if (snap.exists()) {
              const data = snap.data();
@@ -134,6 +137,7 @@ const App: React.FC = () => {
       setSuppliers(load('suppliers', []));
       setExpenses(load('expenses', []));
       setCustomers(load('customers', []));
+      setPromotions(load('promotions', [])); // New v3.2
       setLowStockThreshold(load('lowStockThreshold', 5));
       setStoreProfile(load('storeProfile', initialStoreProfile));
     }
@@ -162,8 +166,9 @@ const App: React.FC = () => {
       const localSales = loadLocal('sales');
       const localMethods = loadLocal('paymentMethods');
       const localSuppliers = loadLocal('suppliers');
-      const localCustomers = loadLocal('customers'); // v3.0
-      const localMovements = loadLocal('cashMovements'); // v3.1
+      const localCustomers = loadLocal('customers');
+      const localPromotions = loadLocal('promotions'); // v3.2
+      const localMovements = loadLocal('cashMovements');
       const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
 
       const batchLimit = 250; 
@@ -186,9 +191,11 @@ const App: React.FC = () => {
       if (count >= batchLimit) await commitBatch();
       localSuppliers.forEach((s: any) => { addToBatch(doc(db, 'users', user.uid, 'suppliers', s.id), s); });
       if (count >= batchLimit) await commitBatch();
-      localCustomers.forEach((c: any) => { addToBatch(doc(db, 'users', user.uid, 'customers', c.id), c); }); // v3.0
+      localCustomers.forEach((c: any) => { addToBatch(doc(db, 'users', user.uid, 'customers', c.id), c); });
       if (count >= batchLimit) await commitBatch();
-      localMovements.forEach((m: any) => { addToBatch(doc(db, 'users', user.uid, 'cashMovements', m.id), m); }); // v3.1
+      localPromotions.forEach((p: any) => { addToBatch(doc(db, 'users', user.uid, 'promotions', p.id), p); }); // v3.2
+      if (count >= batchLimit) await commitBatch();
+      localMovements.forEach((m: any) => { addToBatch(doc(db, 'users', user.uid, 'cashMovements', m.id), m); });
       if (count >= batchLimit) await commitBatch();
       
       if (localProfile) {
@@ -226,7 +233,7 @@ const App: React.FC = () => {
     }
   };
   const handleUpdateProduct = async (updatedProduct: Product) => {
-    if (userRole !== 'ADMIN' && updatedProduct.costPrice !== products.find(p => p.id === updatedProduct.id)?.costPrice) return; // Basic protection
+    if (userRole !== 'ADMIN' && updatedProduct.costPrice !== products.find(p => p.id === updatedProduct.id)?.costPrice) return; 
     if (user) await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), sanitizeForFirestore(updatedProduct));
     else { const u = products.map(p => p.id === updatedProduct.id ? updatedProduct : p); setProducts(u); saveLocal('products', u); }
   };
@@ -236,8 +243,29 @@ const App: React.FC = () => {
     else { const u = products.filter(p => p.id !== id); setProducts(u); saveLocal('products', u); }
   };
 
-  // --- SALES v3.0 (with Credit/Fiado) ---
+  // --- PROMOTIONS v3.2 ---
+  const handleAddPromotion = async (newPromo: Omit<Promotion, 'id'>) => {
+    if (userRole !== 'ADMIN') return;
+    const promo = { ...newPromo, id: uuidv4() };
+    if (user) await setDoc(doc(db, 'users', user.uid, 'promotions', promo.id), sanitizeForFirestore(promo));
+    else { const u = [...promotions, promo]; setPromotions(u); saveLocal('promotions', u); }
+  };
+
+  const handleDeletePromotion = async (id: string) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'promotions', id));
+    else { const u = promotions.filter(p => p.id !== id); setPromotions(u); saveLocal('promotions', u); }
+  };
+
+  const handleTogglePromotion = async (id: string, isActive: boolean) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await updateDoc(doc(db, 'users', user.uid, 'promotions', id), { isActive });
+    else { const u = promotions.map(p => p.id === id ? { ...p, isActive } : p); setPromotions(u); saveLocal('promotions', u); }
+  };
+
+  // --- SALES ---
   const handleCompleteSale = async (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData, customerId?: string, isCredit?: boolean): Promise<Sale | undefined> => {
+    // Note: cartItems here already contain the *promotional* price as sellingPrice if applicable
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
     const totalCost = cartItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
     const primaryPayment = payments.length > 0 ? payments.sort((a,b) => b.amount - a.amount)[0] : { methodId: 'CREDIT', methodName: 'Fiado', amount: totalAmount };
@@ -251,7 +279,8 @@ const App: React.FC = () => {
         quantity: item.quantity,
         unitPrice: item.sellingPrice,
         unitCost: item.costPrice,
-        subtotal: item.sellingPrice * item.quantity
+        subtotal: item.sellingPrice * item.quantity,
+        isPromo: !!item.appliedPromotionId
       })),
       totalAmount,
       totalProfit: totalAmount - totalCost,
@@ -320,7 +349,6 @@ const App: React.FC = () => {
   };
 
   const handleCustomerPayment = async (customerId: string, amount: number, methodId: string) => {
-    // This creates a special "Sale" record to track the payment and update balances
     const customer = customers.find(c => c.id === customerId);
     const method = paymentMethods.find(m => m.id === methodId);
     if (!customer || !method) return;
@@ -356,7 +384,6 @@ const App: React.FC = () => {
     const method = paymentMethods.find(m => m.id === methodId);
     if (!method) return;
     
-    // Check balance for expense
     if (type === 'EXPENSE' && method.balance < amount) {
        alert("No hay suficiente saldo en esta caja para realizar el retiro.");
        return;
@@ -488,8 +515,9 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (view) {
       case 'DASHBOARD': return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
-      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
+      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
       case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} />;
+      case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} /> : null;

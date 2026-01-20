@@ -1,17 +1,19 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users } from 'lucide-react';
-import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer } from '../types';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle } from 'lucide-react';
+import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion } from '../types';
 import InvoiceModal from './InvoiceModal';
 
 interface POSProps {
   products: Product[];
   paymentMethods: PaymentMethod[];
-  customers: Customer[]; // New v3.0
+  customers: Customer[];
+  promotions: Promotion[]; // Recibe las promos
   onCompleteSale: (items: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData, customerId?: string, isCredit?: boolean) => Promise<Sale | undefined> | Sale | undefined;
   storeProfile: StoreProfile;
 }
 
-const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onCompleteSale, storeProfile }) => {
+const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotions, onCompleteSale, storeProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('FAVORITES'); // Start with favorites
@@ -52,7 +54,30 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
     }
   }, [paymentMethods]);
 
-  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0), [cart]);
+  // --- Logic for Promotions ---
+  const getApplicablePromotion = (item: CartItem): Promotion | null => {
+    // 1. Find promos for this product
+    const applicable = promotions.filter(p => p.isActive && p.productId === (item.id.includes('-') ? item.id.split('-')[0] : item.id));
+    if (applicable.length === 0) return null;
+
+    // 2. Sort by trigger quantity desc to find best tier (e.g., buy 10 is better than buy 3)
+    // For now, we assume one promo per product usually, but let's be safe
+    const bestPromo = applicable
+       .filter(p => item.quantity >= p.triggerQuantity)
+       .sort((a, b) => b.triggerQuantity - a.triggerQuantity)[0];
+    
+    return bestPromo || null;
+  };
+
+  const calculateItemTotal = (item: CartItem) => {
+     const promo = getApplicablePromotion(item);
+     const price = promo ? promo.promotionalPrice : item.sellingPrice;
+     return price * item.quantity;
+  };
+
+  const cartTotal = useMemo(() => {
+    return cart.reduce((acc, item) => acc + calculateItemTotal(item), 0);
+  }, [cart, promotions]);
 
   const totalSplitEntered = useMemo(() => {
     return (Object.values(splitAmounts) as string[]).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
@@ -152,20 +177,33 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
        }
     }
 
+    // Prepare Items with Final Prices (applying promos)
+    const finalCartItems = cart.map(item => {
+      const promo = getApplicablePromotion(item);
+      if (promo) {
+        return {
+          ...item,
+          sellingPrice: promo.promotionalPrice, // Update price to promo price
+          appliedPromotionId: promo.id
+        };
+      }
+      return item;
+    });
+
+    const finalTotal = finalCartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+
     // Payment Validation
     let finalPayments: PaymentDetail[] = [];
 
     if (isCreditSale) {
-        // Fiado Logic: We don't register a cash movement, but we pass the data up
-        // We will mock a payment method name for display purposes
         finalPayments.push({
            methodId: 'CREDIT_ACCOUNT',
            methodName: 'Cuenta Corriente',
-           amount: cartTotal
+           amount: finalTotal
         });
     } else if (isSplitPayment) {
-      if (totalSplitEntered < cartTotal - 0.01) {
-        alert(`Falta cubrir $${remainingTotal.toFixed(2)} del total.`);
+      if (totalSplitEntered < finalTotal - 0.01) {
+        alert(`Falta cubrir $${Math.max(0, finalTotal - totalSplitEntered).toFixed(2)} del total.`);
         return;
       }
       (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
@@ -178,7 +216,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
     } else {
        const method = paymentMethods.find(m => m.id === selectedMethod);
        if (!method) return;
-       finalPayments.push({ methodId: selectedMethod, methodName: method.name, amount: cartTotal });
+       finalPayments.push({ methodId: selectedMethod, methodName: method.name, amount: finalTotal });
     }
 
     let invoiceData: InvoiceData | undefined = undefined;
@@ -190,7 +228,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
       };
     }
 
-    const sale = await onCompleteSale(cart, finalPayments, invoiceData, selectedCustomerId, isCreditSale);
+    const sale = await onCompleteSale(finalCartItems, finalPayments, invoiceData, selectedCustomerId, isCreditSale);
     if (sale) setLastSale(sale);
 
     // Reset
@@ -230,28 +268,37 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 bg-slate-50 pb-24 md:pb-4 custom-scrollbar">
-            {filteredProducts.map(product => (
-              <div 
-                key={product.id}
-                onClick={() => addToCart(product)}
-                className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}
-              >
-                {product.isFavorite && (
-                   <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor"/></div>
-                )}
-                {product.barcode && (
-                   <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>
-                )}
-                <div className="mt-4">
-                  <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
-                  <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+            {filteredProducts.map(product => {
+               // Check if product has active promo to show badge
+               const hasPromo = promotions.some(p => p.isActive && p.productId === product.id);
+               return (
+                <div 
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}
+                >
+                  {product.isFavorite && (
+                     <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor"/></div>
+                  )}
+                  {hasPromo && (
+                     <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                        <Tag size={10} /> PROMO
+                     </div>
+                  )}
+                  {product.barcode && (
+                     <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>
+                  )}
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
+                    <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+                  </div>
+                  <div className="flex justify-between items-end mt-2">
+                     <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {product.stock}</span>
+                     <span className="font-bold text-base md:text-lg text-brand-600">{product.isVariablePrice ? '$-.--' : `$${product.sellingPrice}`}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-end mt-2">
-                   <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {product.stock}</span>
-                   <span className="font-bold text-base md:text-lg text-brand-600">{product.isVariablePrice ? '$-.--' : `$${product.sellingPrice}`}</span>
-                </div>
-              </div>
-            ))}
+               );
+            })}
           </div>
         </div>
 
@@ -283,22 +330,45 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, onComple
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {cart.map(item => (
-              <div key={item.id} className="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-100">
-                <div className="flex-1 overflow-hidden">
-                  <h4 className="text-sm font-medium text-slate-800 truncate">{item.name}</h4>
-                  <div className="text-xs text-brand-600 font-bold">
-                     {item.isVariablePrice ? `$${item.sellingPrice.toFixed(2)}` : `$${(item.sellingPrice * item.quantity).toFixed(2)}`}
+            {cart.map(item => {
+              const promo = getApplicablePromotion(item);
+              const total = calculateItemTotal(item);
+              
+              return (
+                <div key={item.id} className={`flex flex-col bg-white p-2 rounded-lg border ${promo ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="text-sm font-medium text-slate-800 truncate">{item.name}</h4>
+                      <div className="text-xs text-brand-600 font-bold flex items-center gap-2">
+                         {item.isVariablePrice ? (
+                            `$${item.sellingPrice.toFixed(2)}`
+                         ) : promo ? (
+                            <>
+                               <span className="line-through text-slate-400 decoration-slate-400">${(item.sellingPrice * item.quantity).toFixed(2)}</span>
+                               <span className="text-emerald-600 font-extrabold flex items-center gap-1">
+                                  ${total.toFixed(2)} <Tag size={10} />
+                               </span>
+                            </>
+                         ) : (
+                            `$${total.toFixed(2)}`
+                         )}
+                      </div>
+                      {promo && (
+                         <div className="text-[10px] text-indigo-600 font-bold mt-0.5">
+                            Promo: {promo.name}
+                         </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 md:gap-2 bg-slate-100 rounded-lg p-1 h-8">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded" disabled={!!item.isVariablePrice}><Minus size={14} /></button>
+                      <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white rounded" disabled={!!item.isVariablePrice}><Plus size={14} /></button>
+                    </div>
+                    <button onClick={() => setCart(prev => prev.filter(i => i.id !== item.id))} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={16} /></button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 md:gap-2 bg-slate-100 rounded-lg p-1">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded" disabled={!!item.isVariablePrice}><Minus size={14} /></button>
-                  <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white rounded" disabled={!!item.isVariablePrice}><Plus size={14} /></button>
-                </div>
-                <button onClick={() => setCart(prev => prev.filter(i => i.id !== item.id))} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={16} /></button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="p-4 bg-slate-50 border-t border-slate-200 rounded-b-xl">

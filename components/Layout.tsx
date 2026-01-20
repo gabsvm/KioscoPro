@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag } from 'lucide-react';
 import { ViewState, UserRole } from '../types';
 
 interface LayoutProps {
@@ -20,9 +21,10 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
   const allNavItems: { id: ViewState; label: string; icon: React.ReactNode; roles: UserRole[] }[] = [
     { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'POS', label: 'Vender', icon: <ShoppingCart size={20} />, roles: ['ADMIN', 'SELLER'] },
-    { id: 'CUSTOMERS', label: 'Clientes', icon: <Users size={20} />, roles: ['ADMIN', 'SELLER'] }, // New v3.0
+    { id: 'CUSTOMERS', label: 'Clientes', icon: <Users size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'HISTORY', label: 'Historial', icon: <History size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} />, roles: ['ADMIN', 'SELLER'] },
+    { id: 'PROMOTIONS', label: 'Promociones', icon: <Tag size={20} />, roles: ['ADMIN'] }, // New Link
     { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} />, roles: ['ADMIN'] },
     { id: 'FINANCE', label: 'Cajas', icon: <Wallet size={20} />, roles: ['ADMIN'] },
     { id: 'REPORTS', label: 'Reportes', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
@@ -61,7 +63,7 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
           <div>
             <h1 className="font-bold text-lg leading-none">KioscoPro</h1>
             <span className={`text-xs font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
-               {userRole === 'ADMIN' ? 'v3.0 Admin' : 'v3.0 Vendedor'}
+               {userRole === 'ADMIN' ? 'v3.2 Admin' : 'v3.2 Vendedor'}
             </span>
           </div>
         </div>
