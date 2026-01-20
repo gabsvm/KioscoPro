@@ -1,8 +1,8 @@
 
-const CACHE_NAME = 'kioscopro-cache-v1';
+const CACHE_NAME = 'kioscopro-cache-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
+  './',
+  './index.html',
   'https://cdn.tailwindcss.com'
 ];
 
@@ -31,16 +31,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   
+  // Estrategia: Cache First, falling back to Network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // Return cached response if found
       if (cachedResponse) {
         return cachedResponse;
       }
-      // Otherwise fetch from network
       return fetch(event.request).catch(() => {
-        // Fallback or offline page logic could go here
-        return new Response('Offline - No connection');
+        // Fallback simple para cuando no hay red y no está en caché
+        return new Response('Offline - Sin conexión. Verifica tu internet.', {
+          status: 503,
+          statusText: 'Service Unavailable'
+        });
       });
     })
   );
