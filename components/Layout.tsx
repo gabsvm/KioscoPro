@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag } from 'lucide-react';
-import { ViewState, UserRole } from '../types';
+import { ViewState, UserRole, StoreProfile } from '../types';
 
 interface LayoutProps {
   currentView: ViewState;
@@ -12,9 +12,10 @@ interface LayoutProps {
   onLogout: () => void;
   userRole: UserRole;
   onToggleRole: () => void;
+  storeProfile?: StoreProfile; // New prop
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole, storeProfile }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [logoutConfirmType, setLogoutConfirmType] = useState<'LOGOUT' | 'SWITCH' | null>(null);
 
@@ -52,16 +53,23 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
     setIsUserMenuOpen(false);
   };
 
+  const appName = storeProfile?.name || 'KioscoPro';
+  const appLogo = storeProfile?.logoUrl;
+
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       {/* Desktop Sidebar */}
       <aside className={`hidden md:flex w-64 ${userRole === 'ADMIN' ? 'bg-slate-900' : 'bg-slate-800'} text-white flex-col shadow-xl z-20 transition-colors duration-300`}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
-          <div className={`${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'} p-2 rounded-lg shadow-lg`}>
-            <Store className="text-white" size={24} />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg leading-none">KioscoPro</h1>
+          {appLogo ? (
+             <img src={appLogo} alt="Logo" className="w-10 h-10 rounded-lg object-cover bg-white" />
+          ) : (
+             <div className={`${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'} p-2 rounded-lg shadow-lg`}>
+               <Store className="text-white" size={24} />
+             </div>
+          )}
+          <div className="overflow-hidden">
+            <h1 className="font-bold text-lg leading-tight truncate">{appName}</h1>
             <span className={`text-xs font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
                {userRole === 'ADMIN' ? 'v3.2 Admin' : 'v3.2 Vendedor'}
             </span>
@@ -108,11 +116,17 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-30 shrink-0">
           <div className="flex items-center gap-2">
              {/* Mobile Logo Only */}
-             <div className={`md:hidden p-1.5 rounded-lg ${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'}`}>
-                <Store className="text-white" size={18} />
+             <div className="md:hidden">
+                {appLogo ? (
+                   <img src={appLogo} alt="Logo" className="w-8 h-8 rounded object-cover border border-slate-200" />
+                ) : (
+                   <div className={`p-1.5 rounded-lg ${userRole === 'ADMIN' ? 'bg-brand-500' : 'bg-orange-500'}`}>
+                      <Store className="text-white" size={18} />
+                   </div>
+                )}
              </div>
-             <h2 className="text-xl font-bold text-slate-800">
-               {currentView === 'SETTINGS' ? 'Configuración' : visibleNavItems.find((i) => i.id === currentView)?.label || 'KioscoPro'}
+             <h2 className="text-xl font-bold text-slate-800 truncate max-w-[200px] md:max-w-none">
+               {currentView === 'SETTINGS' ? 'Configuración' : visibleNavItems.find((i) => i.id === currentView)?.label || appName}
              </h2>
           </div>
           

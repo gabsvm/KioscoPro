@@ -132,6 +132,7 @@ export interface StoreProfile {
   startDate: string;
   ivaCondition: string;
   sellerPin?: string;
+  logoUrl?: string; // New: Custom logo
 }
 
 export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS';

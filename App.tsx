@@ -110,6 +110,11 @@ const App: React.FC = () => {
     }
   }, [userRole]);
 
+  // --- Document Title Update ---
+  useEffect(() => {
+    document.title = storeProfile.name || "KioscoPro Manager";
+  }, [storeProfile.name]);
+
   // --- Real-time Sync Logic ---
   useEffect(() => {
     if (authLoading) return;
@@ -555,7 +560,16 @@ const App: React.FC = () => {
 
   return (
     <>
-      <Layout currentView={view} setView={setView} userEmail={user?.email} isGuest={isGuestMode && !user} onLogout={handleLogout} userRole={userRole} onToggleRole={toggleRole}>
+      <Layout 
+        currentView={view} 
+        setView={setView} 
+        userEmail={user?.email} 
+        isGuest={isGuestMode && !user} 
+        onLogout={handleLogout} 
+        userRole={userRole} 
+        onToggleRole={toggleRole}
+        storeProfile={storeProfile} // Pasamos el perfil de la tienda al Layout
+      >
         {renderContent()}
       </Layout>
       {showPinModal && (

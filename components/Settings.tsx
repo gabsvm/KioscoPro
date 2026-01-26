@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Store, Save, Check, Lock, ShieldAlert, Upload } from 'lucide-react';
+import { Store, Save, Check, Lock, ShieldAlert, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { StoreProfile } from '../types';
 
 interface SettingsProps {
@@ -25,6 +26,28 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) { // Limit to 500KB for simplicity
+        alert("La imagen es demasiado grande. Máximo 500KB.");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logoUrl: reader.result as string }));
+        setSaved(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData(prev => ({ ...prev, logoUrl: undefined }));
+    setSaved(false);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3 mb-6">
@@ -33,7 +56,7 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
         </div>
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Configuración del Local</h2>
-          <p className="text-slate-500">Administra datos fiscales y seguridad.</p>
+          <p className="text-slate-500">Administra datos fiscales, seguridad y personalización.</p>
         </div>
       </div>
 
@@ -63,6 +86,62 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
              </div>
           )}
           
+          <div className="col-span-full mt-2">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Personalización Visual</h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Local</label>
+            <input 
+              type="text" 
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="Ej. Kiosco El Paso"
+            />
+            <p className="text-xs text-slate-400 mt-1">Este nombre se mostrará en el encabezado de la app.</p>
+          </div>
+
+          <div>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Logo del Local</label>
+             <div className="flex items-center gap-4">
+                {formData.logoUrl ? (
+                   <div className="relative group w-16 h-16 rounded-lg border border-slate-200 overflow-hidden">
+                      <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={handleRemoveLogo}
+                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                      >
+                         <Trash2 size={20} />
+                      </button>
+                   </div>
+                ) : (
+                   <div className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-300">
+                      <ImageIcon size={24} />
+                   </div>
+                )}
+                
+                <div className="flex-1">
+                   <input 
+                     type="file" 
+                     id="logo-upload" 
+                     accept="image/*" 
+                     className="hidden" 
+                     onChange={handleLogoUpload}
+                   />
+                   <label 
+                     htmlFor="logo-upload"
+                     className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                   >
+                     <Upload size={16} /> {formData.logoUrl ? 'Cambiar Logo' : 'Subir Logo'}
+                   </label>
+                   <p className="text-[10px] text-slate-400 mt-1">Recomendado: 150x150px. Máx 500KB.</p>
+                </div>
+             </div>
+          </div>
+
           <div className="col-span-full mt-2">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Seguridad y Empleados</h3>
           </div>
@@ -101,18 +180,6 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
 
           <div className="col-span-full mt-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Datos Comerciales</h3>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de Fantasía</label>
-            <input 
-              type="text" 
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-              placeholder="Ej. KIOSCO EL PASO"
-            />
           </div>
 
           <div>
