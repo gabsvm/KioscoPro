@@ -56,8 +56,21 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
 
   // --- Logic for Promotions (Robust) ---
   const getApplicablePromotion = useCallback((item: CartItem): Promotion | null => {
-    // 1. Find promos for this product ID (clean ID logic)
-    const cleanId = item.id.includes('-') ? item.id.split('-')[0] : item.id;
+    // 1. Identify Product ID correctly
+    let cleanId = item.id;
+
+    // Only attempt to strip suffix if it's a variable price item (which gets unique IDs in cart like ID-TIMESTAMP)
+    // Standard products with UUIDs (containing dashes) should NOT be split.
+    if (item.isVariablePrice) {
+       const lastDash = item.id.lastIndexOf('-');
+       if (lastDash > 0) {
+          const suffix = item.id.substring(lastDash + 1);
+          // If the suffix is a timestamp (numeric), we assume it's a cart-generated instance ID
+          if (!isNaN(Number(suffix))) {
+             cleanId = item.id.substring(0, lastDash);
+          }
+       }
+    }
     
     // Filter applicable active promotions for this product
     const applicable = promotions.filter(p => p.isActive && p.productId === cleanId);
