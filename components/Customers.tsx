@@ -1,12 +1,14 @@
+
 import React, { useState, useMemo } from 'react';
 import { Customer, Sale, PaymentMethod } from '../types';
 import { Users, Plus, Search, Phone, CreditCard, ChevronRight, FileText, CheckCircle, Clock } from 'lucide-react';
+import { formatCurrency } from '../utils';
 
 interface CustomersProps {
   customers: Customer[];
   sales: Sale[];
   paymentMethods: PaymentMethod[];
-  onAddCustomer: (c: Omit<Customer, 'id' | 'balance' | 'lastPurchaseDate'>) => void;
+  onAddCustomer: (c: Omit<Customer, 'id' | 'lastPurchaseDate'>) => void;
   onCustomerPayment: (customerId: string, amount: number, methodId: string) => void;
 }
 
@@ -20,6 +22,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newDni, setNewDni] = useState('');
+  const [initialBalance, setInitialBalance] = useState('');
 
   // Payment Form
   const [payAmount, setPayAmount] = useState('');
@@ -43,10 +46,11 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
       name: newName,
       phone: newPhone,
       dni: newDni,
-      notes: ''
+      notes: '',
+      balance: parseFloat(initialBalance) || 0
     });
     setShowAddModal(false);
-    setNewName(''); setNewPhone(''); setNewDni('');
+    setNewName(''); setNewPhone(''); setNewDni(''); setInitialBalance('');
   };
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
@@ -106,7 +110,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
               </div>
               <div className="text-right">
                 <span className={`font-bold block ${c.balance > 0 ? 'text-red-500' : 'text-slate-400'}`}>
-                   ${c.balance.toFixed(2)}
+                   {formatCurrency(c.balance)}
                 </span>
                 <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Deuda</span>
               </div>
@@ -143,7 +147,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                   <div className="text-right flex-1">
                     <p className="text-xs text-slate-500 font-bold uppercase">Deuda Actual</p>
                     <p className={`text-2xl font-bold ${selectedCustomer.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      ${selectedCustomer.balance.toFixed(2)}
+                      {formatCurrency(selectedCustomer.balance)}
                     </p>
                   </div>
                   {selectedCustomer.balance > 0 && (
@@ -185,9 +189,9 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                       </div>
                       <div className="font-bold text-lg whitespace-nowrap">
                         {sale.paymentMethodName === 'Abono de Deuda' ? (
-                           <span className="text-emerald-600">-${sale.totalAmount.toFixed(2)}</span>
+                           <span className="text-emerald-600">-{formatCurrency(sale.totalAmount)}</span>
                         ) : (
-                           <span className="text-slate-800">${sale.totalAmount.toFixed(2)}</span>
+                           <span className="text-slate-800">{formatCurrency(sale.totalAmount)}</span>
                         )}
                       </div>
                    </div>
@@ -234,6 +238,19 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                    onChange={e => setNewDni(e.target.value)}
                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                  />
+                 <div>
+                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Saldo Inicial / Deuda Previa</label>
+                   <input 
+                     type="number"
+                     step="0.01"
+                     placeholder="0.00"
+                     value={initialBalance}
+                     onChange={e => setInitialBalance(e.target.value)}
+                     className="w-full px-4 py-2 bg-orange-50 text-orange-800 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-bold"
+                   />
+                   <p className="text-[10px] text-slate-400 mt-1">Usa esto para cargar deudores existentes.</p>
+                 </div>
+
                  <div className="flex gap-2 pt-2">
                     <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2 text-slate-600 font-bold hover:bg-slate-50 rounded-lg">Cancelar</button>
                     <button type="submit" className="flex-1 py-2 bg-brand-600 text-white font-bold rounded-lg shadow-lg shadow-brand-200">Guardar</button>
@@ -252,7 +269,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
               
               <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-4 text-center">
                  <span className="text-xs text-red-600 uppercase font-bold">Total adeudado</span>
-                 <div className="text-2xl font-bold text-red-700">${selectedCustomer?.balance.toFixed(2)}</div>
+                 <div className="text-2xl font-bold text-red-700">{formatCurrency(selectedCustomer?.balance || 0)}</div>
               </div>
 
               <form onSubmit={handlePaymentSubmit} className="space-y-4">

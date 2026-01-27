@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { DollarSign, TrendingUp, Package, CreditCard, Sparkles, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
 import { Sale, Product, PaymentMethod, UserRole } from '../types';
 import { analyzeBusinessData } from '../services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatCurrency } from '../utils';
 
 interface DashboardProps {
   sales: Sale[];
@@ -67,7 +69,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">Ventas Hoy</p>
-              <h3 className="text-2xl font-bold text-slate-800 mt-2">${dailyRevenue.toFixed(2)}</h3>
+              <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyRevenue)}</h3>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
               <DollarSign size={20} />
@@ -82,7 +84,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Ganancia Hoy</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">${dailyProfit.toFixed(2)}</h3>
+                  <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyProfit)}</h3>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                   <TrendingUp size={20} />
@@ -105,7 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Valor Inventario</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">${totalStockValue.toFixed(2)}</h3>
+                  <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(totalStockValue)}</h3>
                 </div>
                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
                   <Package size={20} />
@@ -133,7 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
             <div>
               <p className="text-sm font-medium text-slate-500">Total en Cajas</p>
               <h3 className="text-2xl font-bold text-slate-800 mt-2">
-                ${paymentMethods.reduce((acc, m) => acc + m.balance, 0).toFixed(2)}
+                {formatCurrency(paymentMethods.reduce((acc, m) => acc + m.balance, 0))}
               </h3>
             </div>
             <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
@@ -156,11 +158,12 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     cursor={{fill: '#f1f5f9'}}
                   />
-                  <Bar dataKey="ventas" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Ventas ($)" />
-                  {userRole === 'ADMIN' && <Bar dataKey="ganancia" fill="#10b981" radius={[4, 4, 0, 0]} name="Ganancia ($)" />}
+                  <Bar dataKey="ventas" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Ventas" />
+                  {userRole === 'ADMIN' && <Bar dataKey="ganancia" fill="#10b981" radius={[4, 4, 0, 0]} name="Ganancia" />}
                 </BarChart>
               </ResponsiveContainer>
             </div>

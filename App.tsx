@@ -289,7 +289,6 @@ const App: React.FC = () => {
 
   // --- SALES ---
   const handleCompleteSale = async (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData, customerId?: string, isCredit?: boolean): Promise<Sale | undefined> => {
-    // Note: cartItems here already contain the *promotional* price as sellingPrice if applicable
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
     const totalCost = cartItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
     const primaryPayment = payments.length > 0 ? payments.sort((a,b) => b.amount - a.amount)[0] : { methodId: 'CREDIT', methodName: 'Fiado', amount: totalAmount };
@@ -366,8 +365,16 @@ const App: React.FC = () => {
   };
 
   // --- CUSTOMERS v3.0 ---
-  const handleAddCustomer = async (newCustomer: Omit<Customer, 'id' | 'balance' | 'lastPurchaseDate'>) => {
-    const customer = { ...newCustomer, id: uuidv4(), balance: 0, lastPurchaseDate: Date.now() };
+  // Updated to accept initial balance
+  const handleAddCustomer = async (newCustomer: Omit<Customer, 'id' | 'lastPurchaseDate'>) => {
+    // If balance is provided in newCustomer, use it, otherwise 0
+    const customer: Customer = { 
+      ...newCustomer, 
+      id: uuidv4(), 
+      balance: newCustomer.balance || 0, 
+      lastPurchaseDate: Date.now() 
+    };
+    
     if (user) await setDoc(doc(db, 'users', user.uid, 'customers', customer.id), sanitizeForFirestore(customer));
     else { const u = [...customers, customer]; setCustomers(u); saveLocal('customers', u); }
   };
@@ -442,6 +449,7 @@ const App: React.FC = () => {
     }
   };
 
+  // ... rest of the code remains largely the same, just ensuring formatting in rendering if passed down
   // --- Other Actions ---
   const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;

@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { Sale, StoreProfile } from '../types';
 import { X, Printer, Download, Share2, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { formatCurrency } from '../utils';
 
 interface InvoiceModalProps {
   sale: Sale;
@@ -112,9 +114,9 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, storeProfile, onClose
                     <div className="w-[15%] pt-0.5">{item.quantity}</div>
                     <div className="w-[50%] font-medium leading-snug">
                         {item.productName}
-                        <div className="text-[10px] text-slate-500 font-normal">x ${item.unitPrice.toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">x {formatCurrency(item.unitPrice)}</div>
                     </div>
-                    <div className="w-[35%] text-right font-bold">{item.subtotal.toFixed(2)}</div>
+                    <div className="w-[35%] text-right font-bold">{formatCurrency(item.subtotal)}</div>
                   </div>
                 ))}
               </div>
@@ -125,7 +127,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, storeProfile, onClose
             {/* Total */}
             <div className="flex justify-between items-end mt-2 mb-4">
                <div className="text-lg font-bold">Importe Total:</div>
-               <div className="text-2xl font-bold">$ {totalAmount.toFixed(2)}</div>
+               <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
             </div>
 
             {/* Pagos */}
@@ -135,13 +137,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ sale, storeProfile, onClose
                 sale.payments.map((p, i) => (
                    <div key={i} className="flex justify-between">
                      <span className="uppercase">{p.methodName}</span>
-                     <span>${p.amount.toFixed(2)}</span>
+                     <span>{formatCurrency(p.amount)}</span>
                    </div>
                 ))
               ) : (
                 <div className="flex justify-between">
                    <span className="uppercase">{sale.paymentMethodName}</span>
-                   <span>${totalAmount.toFixed(2)}</span>
+                   <span>{formatCurrency(totalAmount)}</span>
                 </div>
               )}
             </div>

@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Settings, Lock, Scale, Upload, FileSpreadsheet, Barcode, Star, TrendingUp, Percent } from 'lucide-react';
 import { Product } from '../types';
+import { formatCurrency } from '../utils';
 
 interface InventoryProps {
   products: Product[];
@@ -333,12 +335,12 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
                       )}
                     </td>
                     <td className="px-6 py-4 text-slate-500"><span className="bg-white border border-slate-200 px-2 py-1 rounded text-xs">{product.category}</span></td>
-                    {!isReadOnly && <td className="px-6 py-4 text-slate-600">${product.costPrice}</td>}
+                    {!isReadOnly && <td className="px-6 py-4 text-slate-600">{formatCurrency(product.costPrice)}</td>}
                     <td className="px-6 py-4 text-slate-800 font-bold">
                       {product.isVariablePrice ? (
                         <span className="text-slate-400 italic font-normal">Manual</span>
                       ) : (
-                        `$${product.sellingPrice}`
+                        formatCurrency(product.sellingPrice)
                       )}
                     </td>
                     <td className="px-6 py-4">

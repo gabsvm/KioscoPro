@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Tag, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { Promotion, Product } from '../types';
+import { formatCurrency } from '../utils';
 
 interface PromotionsProps {
   promotions: Promotion[];
@@ -123,14 +124,14 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
                   <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-100">
                      <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-slate-500">Normal</span>
-                        <span className="font-medium line-through text-slate-400">${product?.sellingPrice}</span>
+                        <span className="font-medium line-through text-slate-400">{formatCurrency(product?.sellingPrice || 0)}</span>
                      </div>
                      <div className="flex items-center justify-between text-sm font-bold">
                         <span className="text-indigo-600 flex items-center gap-1">
                            Llevando {promo.triggerQuantity}+
                            <ArrowRight size={14} />
                         </span>
-                        <span className="text-emerald-600 text-lg">${promo.promotionalPrice}</span>
+                        <span className="text-emerald-600 text-lg">{formatCurrency(promo.promotionalPrice)}</span>
                      </div>
                   </div>
 
@@ -199,7 +200,7 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
                         >
                            {filteredProductsForSelect.length === 0 && <option disabled>No hay productos coincidentes</option>}
                            {filteredProductsForSelect.map(p => (
-                              <option key={p.id} value={p.id} className="py-1">{p.name} (Actual: ${p.sellingPrice})</option>
+                              <option key={p.id} value={p.id} className="py-1">{p.name} (Actual: {formatCurrency(p.sellingPrice)})</option>
                            ))}
                         </select>
                      </div>
@@ -226,7 +227,7 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
                              min="0"
                              step="0.01"
                              required
-                             placeholder={`< $${selectedProduct.sellingPrice}`}
+                             placeholder={`< ${formatCurrency(selectedProduct.sellingPrice)}`}
                              value={promoPrice}
                              onChange={e => setPromoPrice(e.target.value)}
                              className="w-full mt-1 px-3 py-2 border border-emerald-300 rounded-lg outline-none font-bold text-emerald-600 text-center focus:ring-2 focus:ring-emerald-500"
@@ -239,8 +240,8 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
                      <div className="flex items-start gap-2 text-xs text-indigo-700 bg-indigo-50 p-2 rounded">
                         <AlertCircle size={14} className="mt-0.5 shrink-0" />
                         <span>
-                           El cliente paga <b>${(parseFloat(promoPrice) * parseInt(triggerQty)).toFixed(2)}</b> en total por {triggerQty} unidades. 
-                           (Ahorra ${( (selectedProduct.sellingPrice - parseFloat(promoPrice)) * parseInt(triggerQty) ).toFixed(2)})
+                           El cliente paga <b>{formatCurrency(parseFloat(promoPrice) * parseInt(triggerQty))}</b> en total por {triggerQty} unidades. 
+                           (Ahorra {formatCurrency( (selectedProduct.sellingPrice - parseFloat(promoPrice)) * parseInt(triggerQty) )})
                         </span>
                      </div>
                   )}

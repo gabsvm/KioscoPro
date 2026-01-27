@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion } from '../types';
 import InvoiceModal from './InvoiceModal';
+import { formatCurrency } from '../utils';
 
 interface POSProps {
   products: Product[];
@@ -220,7 +221,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
         });
     } else if (isSplitPayment) {
       if (totalSplitEntered < finalTotal - 0.01) {
-        alert(`Falta cubrir $${Math.max(0, finalTotal - totalSplitEntered).toFixed(2)} del total.`);
+        alert(`Falta cubrir ${formatCurrency(Math.max(0, finalTotal - totalSplitEntered))} del total.`);
         return;
       }
       (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
@@ -311,7 +312,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   </div>
                   <div className="flex justify-between items-end mt-2">
                      <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {product.stock}</span>
-                     <span className="font-bold text-base md:text-lg text-brand-600">{product.isVariablePrice ? '$-.--' : `$${product.sellingPrice}`}</span>
+                     <span className="font-bold text-base md:text-lg text-brand-600">{product.isVariablePrice ? '$-.--' : formatCurrency(product.sellingPrice)}</span>
                   </div>
                 </div>
                );
@@ -359,23 +360,23 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                       
                       <div className="text-xs text-brand-600 font-bold flex items-center gap-2 mt-0.5">
                          {item.isVariablePrice ? (
-                            `$${item.sellingPrice.toFixed(2)}`
+                            formatCurrency(item.sellingPrice)
                          ) : promo ? (
                             <div className="flex flex-col items-start leading-none gap-1">
                                <div>
-                                  <span className="line-through text-slate-400 decoration-slate-400 mr-2">${(item.sellingPrice * item.quantity).toFixed(2)}</span>
-                                  <span className="text-emerald-600 font-extrabold text-sm">${total.toFixed(2)}</span>
+                                  <span className="line-through text-slate-400 decoration-slate-400 mr-2">{formatCurrency(item.sellingPrice * item.quantity)}</span>
+                                  <span className="text-emerald-600 font-extrabold text-sm">{formatCurrency(total)}</span>
                                </div>
                             </div>
                          ) : (
-                            `$${total.toFixed(2)}`
+                            formatCurrency(total)
                          )}
                       </div>
                       
                       {promo && (
                          <div className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-1 rounded mt-1 flex justify-between items-center font-bold">
                             <span className="flex items-center gap-1"><Tag size={10} /> {promo.name}</span>
-                            <span>${promo.promotionalPrice}/u</span>
+                            <span>{formatCurrency(promo.promotionalPrice)}/u</span>
                          </div>
                       )}
                     </div>
@@ -395,7 +396,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
           <div className="p-4 bg-slate-50 border-t border-slate-200 rounded-b-xl">
             <div className="flex justify-between items-center mb-4">
               <span className="text-slate-600 font-medium">Total</span>
-              <span className="text-2xl font-bold text-slate-900">${cartTotal.toFixed(2)}</span>
+              <span className="text-2xl font-bold text-slate-900">{formatCurrency(cartTotal)}</span>
             </div>
 
             {!showCheckout ? (
@@ -426,7 +427,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                        className="w-full p-2 rounded border border-orange-200 text-sm outline-none"
                      >
                        <option value="">-- Buscar Cliente --</option>
-                       {customers.map(c => <option key={c.id} value={c.id}>{c.name} (Deuda: ${c.balance})</option>)}
+                       {customers.map(c => <option key={c.id} value={c.id}>{c.name} (Deuda: {formatCurrency(c.balance)})</option>)}
                      </select>
                      <p className="text-[10px] text-orange-600 mt-2 italic">La venta quedará registrada como "Pendiente de Pago" en la cuenta del cliente.</p>
                   </div>
@@ -444,7 +445,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                          />
                       </div>
                     ))}
-                    <div className="text-right text-sm font-bold text-slate-500">Falta: ${remainingTotal.toFixed(2)}</div>
+                    <div className="text-right text-sm font-bold text-slate-500">Falta: {formatCurrency(remainingTotal)}</div>
                   </div>
                 ) : (
                   // SIMPLE UI

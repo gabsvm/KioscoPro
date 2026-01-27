@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Sale, InvoiceData, StoreProfile } from '../types';
 import { Search, Printer, FileText, ChevronDown } from 'lucide-react';
 import InvoiceModal from './InvoiceModal';
+import { formatCurrency } from '../utils';
 
 interface SalesHistoryProps {
   sales: Sale[];
@@ -114,7 +116,7 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, storeProfile }) => {
                           <span className="text-xs font-bold text-slate-700">Mixto:</span>
                           {sale.payments.map((p, i) => (
                              <span key={i} className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded border border-slate-200 whitespace-nowrap">
-                               {p.methodName}: ${p.amount}
+                               {p.methodName}: {formatCurrency(p.amount)}
                              </span>
                           ))}
                         </div>
@@ -125,7 +127,7 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, storeProfile }) => {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right font-bold text-slate-800 text-base">
-                    ${sale.totalAmount.toFixed(2)}
+                    {formatCurrency(sale.totalAmount)}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button 

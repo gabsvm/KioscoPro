@@ -1,6 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Truck, Plus, DollarSign, FileText, ChevronRight, Phone, Mail } from 'lucide-react';
 import { Supplier, Expense, PaymentMethod } from '../types';
+import { formatCurrency } from '../utils';
 
 interface SuppliersProps {
   suppliers: Supplier[];
@@ -93,7 +95,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
               </div>
               <div className="text-right">
                 <span className={`font-bold block ${sup.balance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                   ${sup.balance.toFixed(2)}
+                   {formatCurrency(sup.balance)}
                 </span>
                 <span className="text-[10px] text-slate-400 uppercase font-bold">Saldo</span>
               </div>
@@ -132,7 +134,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                <div className="text-right">
                  <p className="text-sm text-slate-500 mb-1">Deuda Actual</p>
                  <p className={`text-3xl font-bold ${selectedSupplier.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                   ${selectedSupplier.balance.toFixed(2)}
+                   {formatCurrency(selectedSupplier.balance)}
                  </p>
                </div>
             </div>
@@ -175,7 +177,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                         </span>
                       </td>
                       <td className={`py-3 text-right pr-2 font-mono font-bold ${expense.type === 'PURCHASE' ? 'text-red-500' : 'text-emerald-600'}`}>
-                        {expense.type === 'PAYMENT' && '-'}${expense.amount.toFixed(2)}
+                        {expense.type === 'PAYMENT' && '-'}{formatCurrency(expense.amount)}
                       </td>
                     </tr>
                   ))}
@@ -246,7 +248,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                      <select required value={transMethod} onChange={e => setTransMethod(e.target.value)} className="w-full px-4 py-2 bg-white text-slate-900 border rounded-lg outline-none">
                        <option value="">Seleccionar Caja</option>
                        {paymentMethods.map(pm => (
-                         <option key={pm.id} value={pm.id}>{pm.name} (${pm.balance.toFixed(2)})</option>
+                         <option key={pm.id} value={pm.id}>{pm.name} ({formatCurrency(pm.balance)})</option>
                        ))}
                      </select>
                    </div>

@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Sale, PaymentMethod } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Calendar, Filter } from 'lucide-react';
+import { formatCurrency } from '../utils';
 
 interface ReportsProps {
   sales: Sale[];
@@ -154,7 +156,7 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                    ))}
                  </Pie>
-                 <Tooltip />
+                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
                  <Legend />
                </PieChart>
              </ResponsiveContainer>
@@ -204,7 +206,7 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                         <div className="flex flex-col gap-1">
                           {sale.payments.map((p, idx) => (
                              <span key={idx} className="bg-indigo-50 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 border border-indigo-100 w-fit">
-                               {p.methodName}: ${p.amount}
+                               {p.methodName}: {formatCurrency(p.amount)}
                              </span>
                           ))}
                         </div>
@@ -218,7 +220,7 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                      {sale.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')}
                    </td>
                    <td className="px-6 py-3 text-right font-bold text-slate-800">
-                     ${sale.totalAmount.toFixed(2)}
+                     {formatCurrency(sale.totalAmount)}
                    </td>
                 </tr>
               ))}

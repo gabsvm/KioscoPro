@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Wallet, ArrowRightLeft, Plus, History, Pencil, Trash2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, ClipboardList } from 'lucide-react';
 import { PaymentMethod, Transfer, CashMovement } from '../types';
+import { formatCurrency } from '../utils';
 
 interface FinanceProps {
   paymentMethods: PaymentMethod[];
@@ -170,7 +171,7 @@ const Finance: React.FC<FinanceProps> = ({
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{method.type}</span>
               <h3 className="text-lg font-bold text-slate-800 mt-1 pr-16 truncate">{method.name}</h3>
               <div className="mt-4 text-3xl font-bold text-brand-600">
-                ${method.balance.toFixed(2)}
+                {formatCurrency(method.balance)}
               </div>
             </div>
           </div>
@@ -205,7 +206,7 @@ const Finance: React.FC<FinanceProps> = ({
                                 </td>
                                 <td className="px-4 py-3 text-slate-500 text-xs">{m.methodName}</td>
                                 <td className={`px-4 py-3 text-right font-bold ${m.type === 'INCOME' ? 'text-emerald-600' : 'text-red-500'}`}>
-                                    {m.type === 'INCOME' ? '+' : '-'}${m.amount.toFixed(2)}
+                                    {m.type === 'INCOME' ? '+' : '-'}{formatCurrency(m.amount).replace('$','')}
                                 </td>
                             </tr>
                         ))}
@@ -243,7 +244,7 @@ const Finance: React.FC<FinanceProps> = ({
                                         <span className="font-bold">{fromName}</span> &rarr; {toName}
                                         {t.note && <div className="text-[10px] text-slate-400 italic mt-0.5">{t.note}</div>}
                                     </td>
-                                    <td className="px-4 py-3 text-right font-bold text-indigo-600">${t.amount.toFixed(2)}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-indigo-600">{formatCurrency(t.amount)}</td>
                                 </tr>
                             );
                         })}
@@ -302,7 +303,7 @@ const Finance: React.FC<FinanceProps> = ({
                           >
                               <option value="">Seleccionar...</option>
                               {paymentMethods.map(m => (
-                                  <option key={m.id} value={m.id}>{m.name} (${m.balance.toFixed(2)})</option>
+                                  <option key={m.id} value={m.id}>{m.name} ({formatCurrency(m.balance)})</option>
                               ))}
                           </select>
                       </div>
@@ -356,7 +357,7 @@ const Finance: React.FC<FinanceProps> = ({
                    >
                      <option value="">Seleccionar</option>
                      {paymentMethods.map(m => (
-                       <option key={m.id} value={m.id}>{m.name} (${m.balance})</option>
+                       <option key={m.id} value={m.id}>{m.name} ({formatCurrency(m.balance)})</option>
                      ))}
                    </select>
                  </div>
@@ -487,7 +488,7 @@ const Finance: React.FC<FinanceProps> = ({
                     <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={16} />
                     <div>
                       <p className="text-sm font-bold text-red-800">¡Advertencia! Esta caja tiene saldo.</p>
-                      <p className="text-xs text-red-700 mt-1">Saldo actual: <span className="font-bold">${methodToDelete.balance.toFixed(2)}</span></p>
+                      <p className="text-xs text-red-700 mt-1">Saldo actual: <span className="font-bold">{formatCurrency(methodToDelete.balance)}</span></p>
                       <p className="text-xs text-red-600 mt-1">Si la eliminas, este dinero desaparecerá de los registros financieros.</p>
                     </div>
                   </div>
