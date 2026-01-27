@@ -1,24 +1,36 @@
 
-import React, { useState } from 'react';
-import { Wallet, ArrowRightLeft, Plus, History, Pencil, Trash2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, ClipboardList } from 'lucide-react';
-import { PaymentMethod, Transfer, CashMovement } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Wallet, ArrowRightLeft, Plus, History, Pencil, Trash2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, ClipboardList, X, Calendar, ArrowRight } from 'lucide-react';
+import { PaymentMethod, Transfer, CashMovement, Sale } from '../types';
 import { formatCurrency } from '../utils';
 
 interface FinanceProps {
   paymentMethods: PaymentMethod[];
   transfers: Transfer[];
-  cashMovements?: CashMovement[]; // New v3.1
+  cashMovements?: CashMovement[];
+  sales?: Sale[]; // Add sales to construct full history
   onAddMethod: (name: string, type: PaymentMethod['type']) => void;
   onUpdateMethod: (id: string, name: string, type: PaymentMethod['type']) => void;
   onDeleteMethod: (id: string) => void;
   onTransfer: (fromId: string, toId: string, amount: number, note: string) => void;
-  onAddCashMovement?: (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => void; // New v3.1
+  onAddCashMovement?: (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => void;
 }
+
+// Internal type for unified history
+type TransactionHistoryItem = {
+  id: string;
+  timestamp: number;
+  type: 'IN' | 'OUT';
+  amount: number;
+  description: string;
+  source: 'SALE' | 'TRANSFER' | 'MANUAL';
+};
 
 const Finance: React.FC<FinanceProps> = ({ 
   paymentMethods, 
   transfers, 
   cashMovements = [], 
+  sales = [],
   onAddMethod, 
   onUpdateMethod, 
   onDeleteMethod, 
@@ -29,6 +41,10 @@ const Finance: React.FC<FinanceProps> = ({
   const [showMethodModal, setShowMethodModal] = useState(false);
   const [showMovementModal, setShowMovementModal] = useState(false);
   const [methodToDelete, setMethodToDelete] = useState<PaymentMethod | null>(null);
+  
+  // History Modal State
+  const [historyMethodId, setHistoryMethodId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<'WEEK' | 'TWO_WEEKS' | 'MONTH'>('WEEK');
 
   // Transfer State
   const [fromId, setFromId] = useState('');
@@ -46,6 +62,101 @@ const Finance: React.FC<FinanceProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [methodName, setMethodName] = useState('');
   const [methodType, setMethodType] = useState<PaymentMethod['type']>('CASH');
+
+  // --- Logic for Box History ---
+  const selectedHistoryMethod = paymentMethods.find(m => m.id === historyMethodId);
+
+  const getFilteredHistory = useMemo(() => {
+    if (!historyMethodId) return [];
+
+    const now = new Date();
+    let startDate = new Date();
+    if (dateFilter === 'WEEK') startDate.setDate(now.getDate() - 7);
+    if (dateFilter === 'TWO_WEEKS') startDate.setDate(now.getDate() - 14);
+    if (dateFilter === 'MONTH') startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const startTime = startDate.getTime();
+    const history: TransactionHistoryItem[] = [];
+
+    // 1. Sales (Income)
+    sales.forEach(sale => {
+      if (sale.timestamp < startTime) return;
+      
+      // Check for split payments
+      if (sale.payments && sale.payments.length > 0) {
+         const payment = sale.payments.find(p => p.methodId === historyMethodId);
+         if (payment) {
+            history.push({
+               id: `sale-${sale.id}`,
+               timestamp: sale.timestamp,
+               type: 'IN',
+               amount: payment.amount,
+               description: `Venta #${sale.id.slice(-4)} (Mixto)`,
+               source: 'SALE'
+            });
+         }
+      } 
+      // Single payment
+      else if (sale.paymentMethodId === historyMethodId) {
+         history.push({
+            id: `sale-${sale.id}`,
+            timestamp: sale.timestamp,
+            type: 'IN',
+            amount: sale.totalAmount,
+            description: sale.paymentMethodName === 'Abono de Deuda' ? `Pago Cliente (${sale.items[0]?.productName || 'Abono'})` : `Venta #${sale.id.slice(-4)}`,
+            source: 'SALE'
+         });
+      }
+    });
+
+    // 2. Transfers (In/Out)
+    transfers.forEach(t => {
+       if (t.timestamp < startTime) return;
+       if (t.fromMethodId === historyMethodId) {
+          history.push({
+             id: `tr-out-${t.id}`,
+             timestamp: t.timestamp,
+             type: 'OUT',
+             amount: t.amount,
+             description: `Transferencia a ${paymentMethods.find(m => m.id === t.toMethodId)?.name || '...'}`,
+             source: 'TRANSFER'
+          });
+       }
+       if (t.toMethodId === historyMethodId) {
+          history.push({
+             id: `tr-in-${t.id}`,
+             timestamp: t.timestamp,
+             type: 'IN',
+             amount: t.amount,
+             description: `Transferencia desde ${paymentMethods.find(m => m.id === t.fromMethodId)?.name || '...'}`,
+             source: 'TRANSFER'
+          });
+       }
+    });
+
+    // 3. Manual Movements (In/Out)
+    cashMovements.forEach(m => {
+       if (m.timestamp < startTime || m.methodId !== historyMethodId) return;
+       history.push({
+          id: `mov-${m.id}`,
+          timestamp: m.timestamp,
+          type: m.type === 'INCOME' ? 'IN' : 'OUT',
+          amount: m.amount,
+          description: m.description,
+          source: 'MANUAL'
+       });
+    });
+
+    return history.sort((a,b) => b.timestamp - a.timestamp);
+  }, [historyMethodId, dateFilter, sales, transfers, cashMovements, paymentMethods]);
+
+  const historyTotals = useMemo(() => {
+     return getFilteredHistory.reduce((acc, curr) => {
+        if (curr.type === 'IN') acc.in += curr.amount;
+        else acc.out += curr.amount;
+        return acc;
+     }, { in: 0, out: 0 });
+  }, [getFilteredHistory]);
 
   const openCreateModal = () => {
     setEditingId(null);
@@ -148,6 +259,13 @@ const Finance: React.FC<FinanceProps> = ({
             {/* Action Buttons */}
             <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                <button 
+                 onClick={() => setHistoryMethodId(method.id)}
+                 className="p-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors text-slate-500"
+                 title="Ver Historial"
+               >
+                 <History size={16} />
+               </button>
+               <button 
                  onClick={() => openEditModal(method)}
                  className="p-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-colors text-slate-500"
                  title="Editar"
@@ -167,11 +285,14 @@ const Finance: React.FC<FinanceProps> = ({
               <Wallet size={64} className="text-brand-600" />
             </div>
             
-            <div className="relative z-10">
+            <div className="relative z-10 cursor-pointer" onClick={() => setHistoryMethodId(method.id)}>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{method.type}</span>
               <h3 className="text-lg font-bold text-slate-800 mt-1 pr-16 truncate">{method.name}</h3>
               <div className="mt-4 text-3xl font-bold text-brand-600">
                 {formatCurrency(method.balance)}
+              </div>
+              <div className="mt-2 text-xs text-brand-600 font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                 Ver Historial <ArrowRight size={12} />
               </div>
             </div>
           </div>
@@ -516,6 +637,110 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* History Modal */}
+      {historyMethodId && selectedHistoryMethod && (
+         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+               {/* Modal Header */}
+               <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+                  <div>
+                     <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <History size={20} className="text-indigo-600"/> Historial: {selectedHistoryMethod.name}
+                     </h3>
+                     <p className="text-xs text-slate-500">Saldo actual: <span className="font-bold text-slate-700">{formatCurrency(selectedHistoryMethod.balance)}</span></p>
+                  </div>
+                  <button onClick={() => setHistoryMethodId(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"><X size={24}/></button>
+               </div>
+
+               {/* Date Filters */}
+               <div className="p-4 bg-white border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0">
+                  <button 
+                     onClick={() => setDateFilter('WEEK')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === 'WEEK' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                  >
+                     Últimos 7 días
+                  </button>
+                  <button 
+                     onClick={() => setDateFilter('TWO_WEEKS')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === 'TWO_WEEKS' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                  >
+                     Últimos 14 días
+                  </button>
+                  <button 
+                     onClick={() => setDateFilter('MONTH')}
+                     className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === 'MONTH' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                  >
+                     Este Mes
+                  </button>
+               </div>
+
+               {/* Summary Cards */}
+               <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 border-b border-slate-200 shrink-0">
+                  <div className="bg-white p-2 rounded-lg border border-emerald-100 text-center shadow-sm">
+                     <span className="text-[10px] uppercase font-bold text-emerald-600">Ingresos</span>
+                     <div className="text-sm md:text-base font-bold text-emerald-700">+{formatCurrency(historyTotals.in)}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-red-100 text-center shadow-sm">
+                     <span className="text-[10px] uppercase font-bold text-red-600">Egresos</span>
+                     <div className="text-sm md:text-base font-bold text-red-700">-{formatCurrency(historyTotals.out)}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg border border-indigo-100 text-center shadow-sm">
+                     <span className="text-[10px] uppercase font-bold text-indigo-600">Balance Periodo</span>
+                     <div className="text-sm md:text-base font-bold text-indigo-700">
+                        {formatCurrency(historyTotals.in - historyTotals.out)}
+                     </div>
+                  </div>
+               </div>
+
+               {/* Transaction List */}
+               <div className="flex-1 overflow-y-auto p-0">
+                  <table className="w-full text-left text-sm">
+                     <thead className="bg-slate-50 text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
+                        <tr>
+                           <th className="px-4 py-3 font-medium">Fecha</th>
+                           <th className="px-4 py-3 font-medium">Detalle</th>
+                           <th className="px-4 py-3 font-medium text-right">Monto</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                        {getFilteredHistory.map((item) => (
+                           <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
+                                 <div className="font-medium text-slate-700">{new Date(item.timestamp).toLocaleDateString()}</div>
+                                 <div>{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                 <div className="flex items-center gap-2">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                       item.source === 'SALE' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                       item.source === 'TRANSFER' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                       'bg-orange-50 text-orange-700 border-orange-200'
+                                    }`}>
+                                       {item.source === 'SALE' ? 'VENTA' : item.source === 'TRANSFER' ? 'TRANSF' : 'MANUAL'}
+                                    </span>
+                                    <span className="font-medium text-slate-700 truncate max-w-[150px] md:max-w-xs">{item.description}</span>
+                                 </div>
+                              </td>
+                              <td className={`px-4 py-3 text-right font-bold ${item.type === 'IN' ? 'text-emerald-600' : 'text-red-500'}`}>
+                                 {item.type === 'IN' ? '+' : '-'}{formatCurrency(item.amount).replace('$','')}
+                              </td>
+                           </tr>
+                        ))}
+                        {getFilteredHistory.length === 0 && (
+                           <tr>
+                              <td colSpan={3} className="py-12 text-center text-slate-400">
+                                 <Calendar size={32} className="mx-auto mb-2 opacity-20"/>
+                                 No hay movimientos en este periodo.
+                              </td>
+                           </tr>
+                        )}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
+         </div>
       )}
     </div>
   );
