@@ -261,6 +261,24 @@ const App: React.FC = () => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), sanitizeForFirestore(updatedProduct));
     else { const u = products.map(p => p.id === updatedProduct.id ? updatedProduct : p); setProducts(u); saveLocal('products', u); }
   };
+  // New v3.4: Bulk Update Products (Used by Supplier Invoice)
+  const handleBulkUpdateProducts = async (updatedProducts: Product[]) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) {
+      const batch = writeBatch(db);
+      updatedProducts.forEach(p => {
+        batch.set(doc(db, 'users', user.uid, 'products', p.id), sanitizeForFirestore(p), { merge: true });
+      });
+      await batch.commit();
+    } else {
+      const u = products.map(p => {
+        const updated = updatedProducts.find(up => up.id === p.id);
+        return updated ? updated : p;
+      });
+      setProducts(u); saveLocal('products', u);
+    }
+  };
+
   const handleDeleteProduct = async (id: string) => {
     if (userRole !== 'ADMIN') return;
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'products', id));
@@ -598,7 +616,7 @@ const App: React.FC = () => {
       case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
-      case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} /> : null;
+      case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
       case 'FINANCE': return userRole === 'ADMIN' ? <Finance sales={sales} paymentMethods={paymentMethods} transfers={transfers} cashMovements={cashMovements} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} onAddCashMovement={handleCashMovement} /> : null;
       case 'REPORTS': return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
       case 'SETTINGS': return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} onMigrateData={user ? handleMigrateData : undefined} /> : null;
