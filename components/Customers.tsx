@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Customer, Sale, PaymentMethod } from '../types';
-import { Users, Plus, Search, Phone, CreditCard, ChevronRight, FileText, CheckCircle, Clock } from 'lucide-react';
+import { Users, Plus, Search, Phone, CreditCard, ChevronRight, FileText, CheckCircle, Clock, SlidersHorizontal, MinusCircle, PlusCircle } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 interface CustomersProps {
@@ -10,13 +10,15 @@ interface CustomersProps {
   paymentMethods: PaymentMethod[];
   onAddCustomer: (c: Omit<Customer, 'id' | 'lastPurchaseDate'>) => void;
   onCustomerPayment: (customerId: string, amount: number, methodId: string) => void;
+  onAdjustDebt: (customerId: string, amount: number, type: 'INCREASE' | 'DECREASE', note: string) => void;
 }
 
-const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods, onAddCustomer, onCustomerPayment }) => {
+const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods, onAddCustomer, onCustomerPayment, onAdjustDebt }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
   
   // New Customer Form
   const [newName, setNewName] = useState('');
@@ -27,6 +29,11 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
   // Payment Form
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('');
+
+  // Adjust Form
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustType, setAdjustType] = useState<'INCREASE' | 'DECREASE'>('INCREASE');
+  const [adjustNote, setAdjustNote] = useState('');
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => 
@@ -63,6 +70,19 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
     setShowPayModal(false);
     setPayAmount('');
     setPayMethod('');
+  };
+
+  const handleAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomer) return;
+    const amount = parseFloat(adjustAmount);
+    if (!amount || amount <= 0 || !adjustNote.trim()) return;
+
+    onAdjustDebt(selectedCustomer.id, amount, adjustType, adjustNote);
+    setShowAdjustModal(false);
+    setAdjustAmount('');
+    setAdjustNote('');
+    setAdjustType('INCREASE');
   };
 
   return (
@@ -143,13 +163,22 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                   </div>
                </div>
                
-               <div className="flex items-center gap-4 w-full md:w-auto bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                  <div className="text-right flex-1">
+               <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="text-right flex-1 md:flex-none md:mr-2">
                     <p className="text-xs text-slate-500 font-bold uppercase">Deuda Actual</p>
                     <p className={`text-2xl font-bold ${selectedCustomer.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       {formatCurrency(selectedCustomer.balance)}
                     </p>
                   </div>
+                  
+                  <button 
+                    onClick={() => setShowAdjustModal(true)}
+                    className="bg-white border border-slate-200 text-slate-600 p-3 rounded-lg hover:bg-slate-50 shadow-sm transition-colors"
+                    title="Ajustar / Editar Deuda"
+                  >
+                    <SlidersHorizontal size={24} />
+                  </button>
+
                   {selectedCustomer.balance > 0 && (
                     <button 
                       onClick={() => setShowPayModal(true)}
@@ -171,7 +200,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                          <div className="flex items-center gap-2 mb-1">
                             {sale.status === 'PENDING_PAYMENT' ? (
                                <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-orange-200">
-                                 <Clock size={10} /> Fiado / Pendiente
+                                 <Clock size={10} /> Fiado / Deuda
                                </span>
                             ) : (
                                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
@@ -181,14 +210,20 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                             <span className="text-xs text-slate-400">{new Date(sale.timestamp).toLocaleString()}</span>
                          </div>
                          <p className="text-sm text-slate-600 font-medium">
-                            {sale.items.length} productos: <span className="text-slate-500 font-normal">{sale.items.map(i => i.productName).join(', ')}</span>
+                            {sale.paymentMethodName === 'Ajuste (Corrección/Pago)' || sale.paymentMethodName === 'Ajuste (Deuda)' ? (
+                               <span className="italic">{sale.items[0]?.productName || 'Ajuste manual'}</span>
+                            ) : (
+                               <>
+                                 {sale.items.length} items: <span className="text-slate-500 font-normal">{sale.items.map(i => i.productName).join(', ')}</span>
+                               </>
+                            )}
                          </p>
                          {sale.paymentMethodName === 'Abono de Deuda' && (
                             <p className="text-emerald-600 text-sm font-bold italic mt-1">Pago a cuenta</p>
                          )}
                       </div>
                       <div className="font-bold text-lg whitespace-nowrap">
-                        {sale.paymentMethodName === 'Abono de Deuda' ? (
+                        {sale.paymentMethodName === 'Abono de Deuda' || sale.paymentMethodName === 'Ajuste (Corrección/Pago)' ? (
                            <span className="text-emerald-600">-{formatCurrency(sale.totalAmount)}</span>
                         ) : (
                            <span className="text-slate-800">{formatCurrency(sale.totalAmount)}</span>
@@ -307,6 +342,77 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
                  <div className="flex gap-2 pt-2">
                     <button type="button" onClick={() => setShowPayModal(false)} className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-50 rounded-xl">Cancelar</button>
                     <button type="submit" className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-600">Confirmar Pago</button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Adjust Debt Modal */}
+      {showAdjustModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm px-4">
+           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95">
+              <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                 <SlidersHorizontal className="text-slate-600" /> Modificar Deuda
+              </h3>
+              
+              <form onSubmit={handleAdjustSubmit} className="space-y-4">
+                 <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
+                    <button 
+                      type="button"
+                      onClick={() => setAdjustType('INCREASE')}
+                      className={`flex-1 py-2 text-sm font-bold rounded-md flex items-center justify-center gap-2 transition-all ${adjustType === 'INCREASE' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500'}`}
+                    >
+                       <PlusCircle size={16} /> Sumar Deuda
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setAdjustType('DECREASE')}
+                      className={`flex-1 py-2 text-sm font-bold rounded-md flex items-center justify-center gap-2 transition-all ${adjustType === 'DECREASE' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
+                    >
+                       <MinusCircle size={16} /> Restar Deuda
+                    </button>
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Monto</label>
+                    <input 
+                      required
+                      autoFocus
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={adjustAmount}
+                      onChange={e => setAdjustAmount(e.target.value)}
+                      className="w-full px-4 py-3 text-xl font-bold text-slate-800 bg-white border-2 border-slate-200 rounded-xl focus:border-brand-500 outline-none"
+                    />
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Motivo / Nota (Obligatorio)</label>
+                    <input 
+                      required
+                      type="text"
+                      placeholder={adjustType === 'INCREASE' ? "Ej. Venta de cigarrillos, Préstamo..." : "Ej. Devolución, Corrección de error..."}
+                      value={adjustNote}
+                      onChange={e => setAdjustNote(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg outline-none"
+                    />
+                 </div>
+
+                 <p className="text-[10px] text-slate-400 italic bg-slate-50 p-2 rounded">
+                    Nota: Este ajuste quedará registrado en el historial del cliente pero <strong>no afectará</strong> el saldo de tus cajas (efectivo/digital).
+                 </p>
+
+                 <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={() => setShowAdjustModal(false)} className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-50 rounded-xl">Cancelar</button>
+                    <button 
+                      type="submit" 
+                      className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-colors ${adjustType === 'INCREASE' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                    >
+                      Confirmar
+                    </button>
                  </div>
               </form>
            </div>

@@ -410,6 +410,47 @@ const App: React.FC = () => {
     }
   };
 
+  // v3.3: Manual Debt Adjustment (Correction/Loan)
+  const handleAdjustCustomerDebt = async (customerId: string, amount: number, type: 'INCREASE' | 'DECREASE', note: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer || amount <= 0) return;
+
+    const newBalance = type === 'INCREASE' 
+       ? customer.balance + amount 
+       : Math.max(0, customer.balance - amount);
+
+    // Create a transaction record to show in history
+    const transactionRecord: Sale = {
+      id: uuidv4(),
+      timestamp: Date.now(),
+      items: [{ 
+         productId: 'ADJUSTMENT', 
+         productName: note || (type === 'INCREASE' ? 'Ajuste: Deuda Agregada' : 'Ajuste: Descuento/Pago'), 
+         quantity: 1, 
+         unitPrice: amount, 
+         unitCost: 0, 
+         subtotal: amount 
+      }],
+      totalAmount: amount,
+      totalProfit: 0,
+      paymentMethodId: 'ADJUSTMENT', 
+      paymentMethodName: type === 'INCREASE' ? 'Ajuste (Deuda)' : 'Ajuste (Corrección/Pago)',
+      customerId: customerId,
+      status: type === 'INCREASE' ? 'PENDING_PAYMENT' : 'COMPLETED'
+    };
+
+    if (user) {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', user.uid, 'sales', transactionRecord.id), sanitizeForFirestore(transactionRecord));
+      batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: newBalance, lastPurchaseDate: Date.now() }, { merge: true });
+      // We do NOT touch paymentMethods (cash boxes) for manual adjustments, assuming it's a correction or debt tracking only.
+      await batch.commit();
+    } else {
+      const uSales = [...sales, transactionRecord]; setSales(uSales); saveLocal('sales', uSales);
+      const uCustomers = customers.map(c => c.id === customerId ? { ...c, balance: newBalance, lastPurchaseDate: Date.now() } : c); setCustomers(uCustomers); saveLocal('customers', uCustomers);
+    }
+  };
+
   // --- CASH MOVEMENTS v3.1 ---
   const handleCashMovement = async (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => {
     const method = paymentMethods.find(m => m.id === methodId);
@@ -449,7 +490,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ... rest of the code remains largely the same, just ensuring formatting in rendering if passed down
   // --- Other Actions ---
   const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
@@ -554,7 +594,7 @@ const App: React.FC = () => {
     switch (view) {
       case 'DASHBOARD': return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
       case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
-      case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} />;
+      case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} onAdjustDebt={handleAdjustCustomerDebt} />;
       case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;

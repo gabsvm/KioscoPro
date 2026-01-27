@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion } from '../types';
 import InvoiceModal from './InvoiceModal';
 import { formatCurrency } from '../utils';
@@ -34,6 +34,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   const [selectedMethod, setSelectedMethod] = useState<string>('');
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
+  
+  // Cash Change Calculator State (New)
+  const [cashReceived, setCashReceived] = useState('');
   
   // Credit / Customer State (Fiado)
   const [isCreditSale, setIsCreditSale] = useState(false);
@@ -102,6 +105,12 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   }, [splitAmounts]);
 
   const remainingTotal = Math.max(0, cartTotal - totalSplitEntered);
+
+  // Helper to determine if selected method is Cash
+  const isSelectedMethodCash = useMemo(() => {
+     const m = paymentMethods.find(pm => pm.id === selectedMethod);
+     return m?.type === 'CASH';
+  }, [selectedMethod, paymentMethods]);
 
   // Categories with Favorites
   const categories = useMemo(() => {
@@ -258,6 +267,13 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
     setSelectedCustomerId('');
     setSplitAmounts({});
     setIsSplitPayment(false);
+    setCashReceived(''); // Reset calculator
+  };
+
+  const handleModeSwitch = (mode: 'SIMPLE' | 'MIXTO' | 'FIADO') => {
+     if (mode === 'SIMPLE') { setIsSplitPayment(false); setIsCreditSale(false); }
+     if (mode === 'MIXTO') { setIsSplitPayment(true); setIsCreditSale(false); setCashReceived(''); }
+     if (mode === 'FIADO') { setIsCreditSale(true); setIsSplitPayment(false); setCashReceived(''); }
   };
 
   return (
@@ -412,9 +428,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                 
                 {/* Method Toggles */}
                 <div className="flex p-1 bg-slate-200 rounded-lg">
-                  <button onClick={() => { setIsSplitPayment(false); setIsCreditSale(false); }} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${!isSplitPayment && !isCreditSale ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>Simple</button>
-                  <button onClick={() => { setIsSplitPayment(true); setIsCreditSale(false); }} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${isSplitPayment ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}><Split size={12} /> Mixto</button>
-                  <button onClick={() => { setIsCreditSale(true); setIsSplitPayment(false); }} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${isCreditSale ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}><User size={12} /> Fiado</button>
+                  <button onClick={() => handleModeSwitch('SIMPLE')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${!isSplitPayment && !isCreditSale ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>Simple</button>
+                  <button onClick={() => handleModeSwitch('MIXTO')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${isSplitPayment ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}><Split size={12} /> Mixto</button>
+                  <button onClick={() => handleModeSwitch('FIADO')} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${isCreditSale ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}><User size={12} /> Fiado</button>
                 </div>
 
                 {isCreditSale ? (
@@ -449,11 +465,36 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   </div>
                 ) : (
                   // SIMPLE UI
-                  <div className="grid grid-cols-2 gap-2">
-                    {paymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
-                      <button key={method.id} onClick={() => setSelectedMethod(method.id)} className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${selectedMethod === method.id ? 'bg-brand-100 border-brand-500 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{method.name}</button>
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {paymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
+                        <button key={method.id} onClick={() => setSelectedMethod(method.id)} className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${selectedMethod === method.id ? 'bg-brand-100 border-brand-500 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{method.name}</button>
+                      ))}
+                    </div>
+
+                    {/* Cash Change Calculator - Only if method is Cash */}
+                    {isSelectedMethodCash && (
+                       <div className="mt-3 p-3 bg-brand-50 border border-brand-100 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                             <label className="text-xs font-bold text-brand-800 flex items-center gap-1"><Banknote size={14} /> Abona con:</label>
+                             <input 
+                               type="number"
+                               step="0.01"
+                               value={cashReceived}
+                               onChange={(e) => setCashReceived(e.target.value)}
+                               placeholder={cartTotal.toString()}
+                               className="w-32 text-right font-bold text-lg p-1 border border-brand-200 rounded focus:border-brand-500 outline-none text-brand-900 bg-white"
+                             />
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-brand-100">
+                             <span className="text-xs text-brand-600 font-bold uppercase">Su Vuelto:</span>
+                             <span className={`text-xl font-black ${parseFloat(cashReceived) >= cartTotal ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {cashReceived ? formatCurrency(Math.max(0, parseFloat(cashReceived) - cartTotal)) : '$ 0,00'}
+                             </span>
+                          </div>
+                       </div>
+                    )}
+                  </>
                 )}
 
                 {/* Invoice Toggle */}
