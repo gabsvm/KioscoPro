@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Truck, Plus, DollarSign, FileText, ChevronRight, Phone, Mail, ShoppingCart, Trash2, Search, ArrowRight } from 'lucide-react';
+import { Truck, Plus, DollarSign, FileText, ChevronRight, Phone, Mail, ShoppingCart, Trash2, Search, ArrowRight, Wallet, CheckCircle, PackagePlus } from 'lucide-react';
 import { Supplier, Expense, PaymentMethod, Product } from '../types';
 import { formatCurrency, smartRound } from '../utils';
 
@@ -44,6 +44,14 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [showProductResults, setShowProductResults] = useState(false);
+  
+  // Invoice Extra Charges
+  const [invoiceExtraCharge, setInvoiceExtraCharge] = useState('');
+  const [invoiceExtraDesc, setInvoiceExtraDesc] = useState('');
+
+  // Invoice Payment State
+  const [invoiceIsPaid, setInvoiceIsPaid] = useState(false);
+  const [invoicePaymentMethod, setInvoicePaymentMethod] = useState('');
 
   const selectedSupplier = useMemo(() => 
     suppliers.find(s => s.id === selectedSupplierId), 
@@ -113,12 +121,23 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
   };
 
   const invoiceTotal = useMemo(() => {
-    return invoiceItems.reduce((acc, item) => acc + (item.newCost * item.quantity), 0);
-  }, [invoiceItems]);
+    const itemsTotal = invoiceItems.reduce((acc, item) => acc + (item.newCost * item.quantity), 0);
+    const extra = parseFloat(invoiceExtraCharge) || 0;
+    return itemsTotal + extra;
+  }, [invoiceItems, invoiceExtraCharge]);
 
   const handleFinalizeInvoice = () => {
-    if (!selectedSupplierId || invoiceItems.length === 0) return;
+    if (!selectedSupplierId || (invoiceItems.length === 0 && !invoiceExtraCharge)) {
+       alert("Debes agregar productos o un cargo extra.");
+       return;
+    }
     
+    // Validate Payment Method if marked as Paid
+    if (invoiceIsPaid && !invoicePaymentMethod) {
+       alert("Por favor selecciona desde qué caja saldrá el dinero para el pago.");
+       return;
+    }
+
     // 1. Prepare products to update
     const productsToUpdate: Product[] = invoiceItems.map(item => ({
       ...item.product,
@@ -128,17 +147,39 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
     }));
 
     // 2. Call bulk update
-    onBulkUpdateProducts(productsToUpdate);
-
-    // 3. Register Expense (Purchase)
-    if (invoiceTotal > 0) {
-       onAddExpense(selectedSupplierId, invoiceTotal, `Factura ${new Date().toLocaleDateString()}`, 'PURCHASE', undefined);
+    if (productsToUpdate.length > 0) {
+       onBulkUpdateProducts(productsToUpdate);
     }
 
-    // 4. Reset
+    // 3. Register Expense (Purchase - Always registers the debt/invoice)
+    if (invoiceTotal > 0) {
+       const dateStr = new Date().toLocaleDateString();
+       let desc = `Factura Compra ${dateStr}`;
+       const extraAmount = parseFloat(invoiceExtraCharge) || 0;
+       
+       if (extraAmount > 0) {
+          desc += ` (Inc. ${formatCurrency(extraAmount)} ${invoiceExtraDesc || 'extra'})`;
+       }
+
+       onAddExpense(selectedSupplierId, invoiceTotal, desc, 'PURCHASE', undefined);
+       
+       // 4. If Paid, Register Payment immediately (Cancels the debt generated above and deducts cash)
+       if (invoiceIsPaid) {
+          onAddExpense(selectedSupplierId, invoiceTotal, `Pago Inmediato Factura ${dateStr}`, 'PAYMENT', invoicePaymentMethod);
+       }
+    }
+
+    // 5. Reset
     setShowInvoiceModal(false);
     setInvoiceItems([]);
-    alert("Factura cargada y stock actualizado correctamente.");
+    setInvoiceIsPaid(false);
+    setInvoicePaymentMethod('');
+    setInvoiceExtraCharge('');
+    setInvoiceExtraDesc('');
+    alert(invoiceIsPaid 
+       ? "Factura cargada, stock actualizado y pago registrado." 
+       : "Factura cargada a Cuenta Corriente y stock actualizado."
+    );
   };
 
   // --- Handlers ---
@@ -451,19 +492,86 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                  </div>
               </div>
 
-              {/* Footer */}
-              <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
-                 <div className="text-lg">
-                    Total Factura: <span className="font-bold text-slate-900 text-2xl">{formatCurrency(invoiceTotal)}</span>
+              {/* Extra Charges Section */}
+              <div className="p-4 bg-white border-t border-slate-100 flex flex-col md:flex-row items-center justify-end gap-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+                 <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hidden md:block">
+                       <PackagePlus size={20} />
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-2 w-full">
+                       <input 
+                          type="text" 
+                          placeholder="Descripción (ej. Envío, Impuesto)" 
+                          value={invoiceExtraDesc}
+                          onChange={e => setInvoiceExtraDesc(e.target.value)}
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-500 w-full md:w-48"
+                       />
+                       <div className="relative w-full md:w-32">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                          <input 
+                             type="number"
+                             min="0"
+                             step="0.01"
+                             placeholder="Monto Extra"
+                             value={invoiceExtraCharge}
+                             onChange={e => setInvoiceExtraCharge(e.target.value)}
+                             className="w-full pl-6 pr-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-500 font-bold text-slate-700"
+                          />
+                       </div>
+                    </div>
                  </div>
-                 <div className="flex gap-3">
-                    <button onClick={() => setShowInvoiceModal(false)} className="px-6 py-3 border border-slate-300 rounded-xl font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
+              </div>
+
+              {/* Footer with Payment Option */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+                 
+                 <div className="flex flex-col gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2">
+                       <span className="font-bold text-sm text-slate-600">Estado del Pago:</span>
+                       <div className="flex bg-white border border-slate-200 p-1 rounded-lg">
+                          <button 
+                             onClick={() => setInvoiceIsPaid(false)}
+                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${!invoiceIsPaid ? 'bg-slate-100 shadow-sm text-slate-800' : 'text-slate-500'}`}
+                          >
+                             Pendiente (Cta. Cte.)
+                          </button>
+                          <button 
+                             onClick={() => setInvoiceIsPaid(true)}
+                             className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${invoiceIsPaid ? 'bg-emerald-500 shadow text-white' : 'text-slate-500'}`}
+                          >
+                             <CheckCircle size={12} /> Pagado
+                          </button>
+                       </div>
+                    </div>
+
+                    {invoiceIsPaid && (
+                       <div className="flex items-center gap-2 animate-in slide-in-from-left fade-in">
+                          <Wallet size={16} className="text-slate-400" />
+                          <select 
+                             value={invoicePaymentMethod} 
+                             onChange={e => setInvoicePaymentMethod(e.target.value)}
+                             className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm outline-none w-full md:w-64"
+                          >
+                             <option value="">Seleccionar Caja de Salida...</option>
+                             {paymentMethods.map(pm => (
+                                <option key={pm.id} value={pm.id}>{pm.name} ({formatCurrency(pm.balance)})</option>
+                             ))}
+                          </select>
+                       </div>
+                    )}
+                 </div>
+
+                 <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+                    <div className="text-right">
+                       <div className="text-xs text-slate-500 uppercase font-bold">Total Factura</div>
+                       <div className="font-bold text-slate-900 text-2xl leading-none">{formatCurrency(invoiceTotal)}</div>
+                    </div>
                     <button 
                       onClick={handleFinalizeInvoice}
-                      disabled={invoiceItems.length === 0}
+                      disabled={invoiceItems.length === 0 && !invoiceExtraCharge}
                       className="px-6 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                       Confirmar Facturación <ArrowRight size={20} />
+                       Confirmar <ArrowRight size={20} />
                     </button>
                  </div>
               </div>
