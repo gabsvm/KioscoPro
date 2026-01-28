@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 // Added 'X' to the lucide-react imports
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion, Combo } from '../types';
 import InvoiceModal from './InvoiceModal';
 import { formatCurrency } from '../utils';
@@ -89,6 +89,10 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   const cartTotal = useMemo(() => {
     return cart.reduce((acc, item) => acc + calculateItemTotal(item), 0);
   }, [cart, calculateItemTotal]);
+
+  const cartItemCount = useMemo(() => {
+    return cart.reduce((acc, item) => acc + item.quantity, 0);
+  }, [cart]);
 
   const isSelectedMethodCash = useMemo(() => {
      const m = paymentMethods.find(pm => pm.id === selectedMethod);
@@ -279,7 +283,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 bg-slate-50 pb-24 md:pb-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 bg-slate-50 pb-24 md:pb-4 custom-scrollbar relative">
             {filteredItems.map(item => {
                if ('parts' in item) {
                   return (
@@ -323,6 +327,30 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                }
             })}
           </div>
+          
+          {/* Mobile Floating Checkout Button (Only visible on mobile catalog view when items exist) */}
+          {cart.length > 0 && mobileView === 'CATALOG' && (
+             <div className="md:hidden absolute bottom-4 left-4 right-4 z-30 animate-in slide-in-from-bottom-2 fade-in">
+                <button 
+                  onClick={() => setMobileView('CART')}
+                  className="w-full bg-brand-600 text-white p-4 rounded-xl shadow-xl flex justify-between items-center hover:bg-brand-700 transition-colors"
+                >
+                   <div className="flex items-center gap-3">
+                      <div className="bg-white/20 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm">
+                         {cartItemCount}
+                      </div>
+                      <div className="text-left flex flex-col leading-none">
+                         <span className="font-bold text-sm">Ver Carrito</span>
+                         <span className="text-[10px] text-brand-200">Ir a cobrar</span>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <span className="font-black text-xl">{formatCurrency(cartTotal)}</span>
+                      <ChevronUp size={20} className="text-brand-200" />
+                   </div>
+                </button>
+             </div>
+          )}
         </div>
 
         <div className={`w-full md:w-96 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col ${mobileView === 'CATALOG' ? 'hidden md:flex' : 'flex'}`}>
