@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag, Layers } from 'lucide-react';
 import { ViewState, UserRole, StoreProfile } from '../types';
 
 interface LayoutProps {
@@ -12,7 +12,7 @@ interface LayoutProps {
   onLogout: () => void;
   userRole: UserRole;
   onToggleRole: () => void;
-  storeProfile?: StoreProfile; // New prop
+  storeProfile?: StoreProfile; 
 }
 
 const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole, storeProfile }) => {
@@ -25,7 +25,8 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
     { id: 'CUSTOMERS', label: 'Clientes', icon: <Users size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'HISTORY', label: 'Historial', icon: <History size={20} />, roles: ['ADMIN', 'SELLER'] },
     { id: 'INVENTORY', label: 'Productos', icon: <Package size={20} />, roles: ['ADMIN', 'SELLER'] },
-    { id: 'PROMOTIONS', label: 'Promociones', icon: <Tag size={20} />, roles: ['ADMIN'] }, // New Link
+    { id: 'COMBOS', label: 'Combos', icon: <Layers size={20} />, roles: ['ADMIN'] }, 
+    { id: 'PROMOTIONS', label: 'Promociones', icon: <Tag size={20} />, roles: ['ADMIN'] }, 
     { id: 'SUPPLIERS', label: 'Proveedores', icon: <Truck size={20} />, roles: ['ADMIN'] },
     { id: 'FINANCE', label: 'Cajas', icon: <Wallet size={20} />, roles: ['ADMIN'] },
     { id: 'REPORTS', label: 'Reportes', icon: <BarChart3 size={20} />, roles: ['ADMIN'] },
@@ -58,7 +59,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
-      {/* Desktop Sidebar */}
       <aside className={`hidden md:flex w-64 ${userRole === 'ADMIN' ? 'bg-slate-900' : 'bg-slate-800'} text-white flex-col shadow-xl z-20 transition-colors duration-300`}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           {appLogo ? (
@@ -111,11 +111,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative w-full">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-30 shrink-0">
           <div className="flex items-center gap-2">
-             {/* Mobile Logo Only */}
              <div className="md:hidden">
                 {appLogo ? (
                    <img src={appLogo} alt="Logo" className="w-8 h-8 rounded object-cover border border-slate-200" />
@@ -154,7 +152,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
               <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Dropdown Menu */}
             {isUserMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
@@ -217,24 +214,16 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                       Cerrar Sesión
                     </button>
                   </div>
-                  
-                  {isGuest && (
-                    <div className="p-3 bg-indigo-50 border-t border-indigo-100 text-xs text-indigo-800">
-                      <p>⚠️ Al salir como invitado, asegúrate de haber creado una cuenta para no perder tus datos.</p>
-                    </div>
-                  )}
                 </div>
               </>
             )}
           </div>
         </header>
 
-        {/* Scrollable Area */}
         <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6 relative scroll-smooth bg-slate-50/50">
            {children}
         </div>
 
-        {/* Mobile Bottom Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar">
            {visibleNavItems.map(item => (
              <button 
@@ -250,41 +239,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
            ))}
         </nav>
       </main>
-
-      {/* Confirmation Modal */}
-      {logoutConfirmType && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 text-center">
-              <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${logoutConfirmType === 'LOGOUT' ? 'bg-red-100 text-red-600' : 'bg-indigo-100 text-indigo-600'}`}>
-                {logoutConfirmType === 'LOGOUT' ? <LogOut size={32} /> : <RefreshCw size={32} />}
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">
-                {logoutConfirmType === 'LOGOUT' ? '¿Cerrar Sesión?' : '¿Cambiar de Cuenta?'}
-              </h3>
-              <p className="text-slate-500 mb-6 text-sm">
-                {isGuest 
-                  ? "Estás usando una cuenta de invitado. Si sales ahora, asegúrate de que no necesitas guardar estos datos permanentemente en una cuenta nueva." 
-                  : `¿Estás seguro que deseas ${logoutConfirmType === 'LOGOUT' ? 'salir del sistema' : 'cambiar a otra cuenta'}? Tendrás que volver a ingresar tus credenciales.`}
-              </p>
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => setLogoutConfirmType(null)}
-                  className="flex-1 py-3 border border-slate-300 rounded-xl text-slate-700 font-bold hover:bg-slate-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={confirmAction}
-                  className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg transition-colors ${logoutConfirmType === 'LOGOUT' ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
-                >
-                  Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -10,9 +10,10 @@ import Suppliers from './components/Suppliers';
 import SalesHistory from './components/SalesHistory';
 import Settings from './components/Settings';
 import Customers from './components/Customers';
-import Promotions from './components/Promotions'; // New v3.2
+import Promotions from './components/Promotions'; 
+import Combos from './components/Combos';
 import Auth from './components/Auth';
-import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement, Promotion } from './types';
+import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement, Promotion, Combo } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc } from 'firebase/firestore';
@@ -62,7 +63,6 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [view, setView] = useState<ViewState>('DASHBOARD');
   
-  // Initialize userRole from localStorage to persist mode across reloads
   const [userRole, setUserRole] = useState<UserRole>(() => {
     try {
       const saved = window.localStorage.getItem('kiosco_user_role');
@@ -85,7 +85,8 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]); // New v3.2
+  const [promotions, setPromotions] = useState<Promotion[]>([]); 
+  const [combos, setCombos] = useState<Combo[]>([]);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
   const [storeProfile, setStoreProfile] = useState<StoreProfile>(initialStoreProfile);
 
@@ -101,7 +102,6 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- Persist User Role ---
   useEffect(() => {
     try {
       window.localStorage.setItem('kiosco_user_role', userRole);
@@ -110,7 +110,6 @@ const App: React.FC = () => {
     }
   }, [userRole]);
 
-  // --- Document Title Update ---
   useEffect(() => {
     document.title = storeProfile.name || "KioscoPro Manager";
   }, [storeProfile.name]);
@@ -133,7 +132,8 @@ const App: React.FC = () => {
         onSnapshot(collection(db, 'users', userId, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => d.data() as Supplier))),
         onSnapshot(collection(db, 'users', userId, 'expenses'), (snap) => setExpenses(snap.docs.map(d => d.data() as Expense))),
         onSnapshot(collection(db, 'users', userId, 'customers'), (snap) => setCustomers(snap.docs.map(d => d.data() as Customer))),
-        onSnapshot(collection(db, 'users', userId, 'promotions'), (snap) => setPromotions(snap.docs.map(d => d.data() as Promotion))), // New v3.2
+        onSnapshot(collection(db, 'users', userId, 'promotions'), (snap) => setPromotions(snap.docs.map(d => d.data() as Promotion))),
+        onSnapshot(collection(db, 'users', userId, 'combos'), (snap) => setCombos(snap.docs.map(d => d.data() as Combo))),
         onSnapshot(doc(db, 'users', userId, 'settings', 'config'), (snap) => {
           if (snap.exists()) {
              const data = snap.data();
@@ -161,7 +161,8 @@ const App: React.FC = () => {
       setSuppliers(load('suppliers', []));
       setExpenses(load('expenses', []));
       setCustomers(load('customers', []));
-      setPromotions(load('promotions', [])); // New v3.2
+      setPromotions(load('promotions', [])); 
+      setCombos(load('combos', []));
       setLowStockThreshold(load('lowStockThreshold', 5));
       setStoreProfile(load('storeProfile', initialStoreProfile));
     }
@@ -178,63 +179,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMigrateData = async () => {
-    if (!user) return;
-    if (!confirm("Esto subirá tus datos locales (productos, ventas, clientes) a tu cuenta en la nube. ¿Deseas continuar?")) return;
-    try {
-      const loadLocal = (key: string) => {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : [];
-      };
-      const localProducts = loadLocal('products');
-      const localSales = loadLocal('sales');
-      const localMethods = loadLocal('paymentMethods');
-      const localSuppliers = loadLocal('suppliers');
-      const localCustomers = loadLocal('customers');
-      const localPromotions = loadLocal('promotions'); // v3.2
-      const localMovements = loadLocal('cashMovements');
-      const localProfile = JSON.parse(window.localStorage.getItem('storeProfile') || 'null');
-
-      const batchLimit = 250; 
-      let batch = writeBatch(db);
-      let count = 0;
-      const commitBatch = async () => {
-        if (count > 0) { await batch.commit(); batch = writeBatch(db); count = 0; }
-      };
-      const addToBatch = (ref: any, data: any) => {
-        const cleanData = sanitizeForFirestore(data);
-        batch.set(ref, cleanData);
-        count++;
-      };
-
-      localProducts.forEach((p: any) => { addToBatch(doc(db, 'users', user.uid, 'products', p.id), p); });
-      if (count >= batchLimit) await commitBatch();
-      localSales.forEach((s: any) => { addToBatch(doc(db, 'users', user.uid, 'sales', s.id), s); });
-      if (count >= batchLimit) await commitBatch();
-      localMethods.forEach((m: any) => { addToBatch(doc(db, 'users', user.uid, 'paymentMethods', m.id), m); });
-      if (count >= batchLimit) await commitBatch();
-      localSuppliers.forEach((s: any) => { addToBatch(doc(db, 'users', user.uid, 'suppliers', s.id), s); });
-      if (count >= batchLimit) await commitBatch();
-      localCustomers.forEach((c: any) => { addToBatch(doc(db, 'users', user.uid, 'customers', c.id), c); });
-      if (count >= batchLimit) await commitBatch();
-      localPromotions.forEach((p: any) => { addToBatch(doc(db, 'users', user.uid, 'promotions', p.id), p); }); // v3.2
-      if (count >= batchLimit) await commitBatch();
-      localMovements.forEach((m: any) => { addToBatch(doc(db, 'users', user.uid, 'cashMovements', m.id), m); });
-      if (count >= batchLimit) await commitBatch();
-      
-      if (localProfile) {
-        batch.set(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ storeProfile: localProfile, lowStockThreshold: 5 }), { merge: true });
-        count++;
-      }
-      await commitBatch();
-      alert("¡Datos migrados exitosamente!");
-    } catch (error) {
-      console.error("Migration Error:", error);
-      alert("Hubo un error al migrar los datos.");
-    }
-  };
-
-  // --- Products ---
   const handleAddProduct = async (newProduct: Omit<Product, 'id'>) => {
     if (userRole !== 'ADMIN') return;
     const product = { ...newProduct, id: uuidv4() };
@@ -261,7 +205,6 @@ const App: React.FC = () => {
     if (user) await setDoc(doc(db, 'users', user.uid, 'products', updatedProduct.id), sanitizeForFirestore(updatedProduct));
     else { const u = products.map(p => p.id === updatedProduct.id ? updatedProduct : p); setProducts(u); saveLocal('products', u); }
   };
-  // New v3.4: Bulk Update Products (Used by Supplier Invoice)
   const handleBulkUpdateProducts = async (updatedProducts: Product[]) => {
     if (userRole !== 'ADMIN') return;
     if (user) {
@@ -285,7 +228,7 @@ const App: React.FC = () => {
     else { const u = products.filter(p => p.id !== id); setProducts(u); saveLocal('products', u); }
   };
 
-  // --- PROMOTIONS v3.2 ---
+  // --- PROMOTIONS ---
   const handleAddPromotion = async (newPromo: Omit<Promotion, 'id'>) => {
     if (userRole !== 'ADMIN') return;
     const promo = { ...newPromo, id: uuidv4() };
@@ -305,10 +248,41 @@ const App: React.FC = () => {
     else { const u = promotions.map(p => p.id === id ? { ...p, isActive } : p); setPromotions(u); saveLocal('promotions', u); }
   };
 
+  // --- COMBOS ---
+  const handleAddCombo = async (newCombo: Omit<Combo, 'id'>) => {
+    if (userRole !== 'ADMIN') return;
+    const combo = { ...newCombo, id: uuidv4() };
+    if (user) await setDoc(doc(db, 'users', user.uid, 'combos', combo.id), sanitizeForFirestore(combo));
+    else { const u = [...combos, combo]; setCombos(u); saveLocal('combos', u); }
+  };
+
+  const handleDeleteCombo = async (id: string) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await deleteDoc(doc(db, 'users', user.uid, 'combos', id));
+    else { const u = combos.filter(c => c.id !== id); setCombos(u); saveLocal('combos', u); }
+  };
+
+  const handleToggleCombo = async (id: string, isActive: boolean) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await updateDoc(doc(db, 'users', user.uid, 'combos', id), { isActive });
+    else { const u = combos.map(c => c.id === id ? { ...c, isActive } : c); setCombos(u); saveLocal('combos', u); }
+  };
+
   // --- SALES ---
   const handleCompleteSale = async (cartItems: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData, customerId?: string, isCredit?: boolean): Promise<Sale | undefined> => {
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
-    const totalCost = cartItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
+    // Cost calculation is tricky for combos; we'll sum the cost of chosen components
+    const totalCost = cartItems.reduce((acc, item) => {
+       if (item.isCombo && item.selectedProductIds) {
+          const componentsCost = item.selectedProductIds.reduce((sum, cid) => {
+             const prod = products.find(p => p.id === cid);
+             return sum + (prod ? prod.costPrice : 0);
+          }, 0);
+          return acc + (componentsCost * item.quantity);
+       }
+       return acc + ((item.costPrice || 0) * item.quantity);
+    }, 0);
+
     const primaryPayment = payments.length > 0 ? payments.sort((a,b) => b.amount - a.amount)[0] : { methodId: 'CREDIT', methodName: 'Fiado', amount: totalAmount };
 
     const newSale: Sale = {
@@ -319,9 +293,11 @@ const App: React.FC = () => {
         productName: item.name,
         quantity: item.quantity,
         unitPrice: item.sellingPrice,
-        unitCost: item.costPrice,
+        unitCost: item.isCombo ? totalCost / item.quantity : (item.costPrice || 0),
         subtotal: item.sellingPrice * item.quantity,
-        isPromo: !!item.appliedPromotionId
+        isPromo: !!item.appliedPromotionId,
+        isCombo: !!item.isCombo,
+        comboComponentIds: item.selectedProductIds
       })),
       totalAmount,
       totalProfit: totalAmount - totalCost,
@@ -339,11 +315,20 @@ const App: React.FC = () => {
         batch.set(doc(db, 'users', user.uid, 'sales', newSale.id), sanitizeForFirestore(newSale));
 
         cartItems.forEach(item => {
-          const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
-          const productInDb = products.find(p => p.id === originalId);
-          if (productInDb) {
-             const currentStock = Number(productInDb.stock) || 0;
-             batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: currentStock - item.quantity }, { merge: true });
+          if (item.isCombo && item.selectedProductIds) {
+             // Deduct stock for each part of the combo
+             item.selectedProductIds.forEach(cid => {
+                const prodInDb = products.find(p => p.id === cid);
+                if (prodInDb) {
+                   batch.set(doc(db, 'users', user.uid, 'products', cid), { stock: (Number(prodInDb.stock) || 0) - item.quantity }, { merge: true });
+                }
+             });
+          } else {
+            const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
+            const productInDb = products.find(p => p.id === originalId);
+            if (productInDb) {
+               batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: (Number(productInDb.stock) || 0) - item.quantity }, { merge: true });
+            }
           }
         });
 
@@ -363,8 +348,15 @@ const App: React.FC = () => {
       const uSales = [...sales, newSale]; setSales(uSales); saveLocal('sales', uSales);
       
       const uProducts = products.map(p => {
-        const sold = cartItems.find(i => (i.id.includes('-') ? i.id.split('-')[0] : i.id) === p.id);
-        return sold ? { ...p, stock: p.stock - sold.quantity } : p;
+        let deduction = 0;
+        cartItems.forEach(item => {
+           if (item.isCombo && item.selectedProductIds) {
+              if (item.selectedProductIds.includes(p.id)) deduction += item.quantity;
+           } else {
+              if ((item.id.includes('-') ? item.id.split('-')[0] : item.id) === p.id) deduction += item.quantity;
+           }
+        });
+        return deduction > 0 ? { ...p, stock: p.stock - deduction } : p;
       });
       setProducts(uProducts); saveLocal('products', uProducts);
 
@@ -382,10 +374,7 @@ const App: React.FC = () => {
     return newSale;
   };
 
-  // --- CUSTOMERS v3.0 ---
-  // Updated to accept initial balance
   const handleAddCustomer = async (newCustomer: Omit<Customer, 'id' | 'lastPurchaseDate'>) => {
-    // If balance is provided in newCustomer, use it, otherwise 0
     const customer: Customer = { 
       ...newCustomer, 
       id: uuidv4(), 
@@ -405,7 +394,7 @@ const App: React.FC = () => {
     const paymentRecord: Sale = {
       id: uuidv4(),
       timestamp: Date.now(),
-      items: [], // No products
+      items: [], 
       totalAmount: amount,
       totalProfit: 0,
       paymentMethodId: methodId,
@@ -428,7 +417,6 @@ const App: React.FC = () => {
     }
   };
 
-  // v3.3: Manual Debt Adjustment (Correction/Loan)
   const handleAdjustCustomerDebt = async (customerId: string, amount: number, type: 'INCREASE' | 'DECREASE', note: string) => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer || amount <= 0) return;
@@ -437,7 +425,6 @@ const App: React.FC = () => {
        ? customer.balance + amount 
        : Math.max(0, customer.balance - amount);
 
-    // Create a transaction record to show in history
     const transactionRecord: Sale = {
       id: uuidv4(),
       timestamp: Date.now(),
@@ -461,7 +448,6 @@ const App: React.FC = () => {
       const batch = writeBatch(db);
       batch.set(doc(db, 'users', user.uid, 'sales', transactionRecord.id), sanitizeForFirestore(transactionRecord));
       batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: newBalance, lastPurchaseDate: Date.now() }, { merge: true });
-      // We do NOT touch paymentMethods (cash boxes) for manual adjustments, assuming it's a correction or debt tracking only.
       await batch.commit();
     } else {
       const uSales = [...sales, transactionRecord]; setSales(uSales); saveLocal('sales', uSales);
@@ -469,7 +455,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- CASH MOVEMENTS v3.1 ---
   const handleCashMovement = async (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => {
     const method = paymentMethods.find(m => m.id === methodId);
     if (!method) return;
@@ -508,7 +493,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Other Actions ---
   const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
     if (userRole !== 'ADMIN') return;
     const newMethod = { id: uuidv4(), name, type, balance: 0 };
@@ -583,12 +567,36 @@ const App: React.FC = () => {
      if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ lowStockThreshold: val, storeProfile }), { merge: true });
      else { setLowStockThreshold(val); saveLocal('lowStockThreshold', val); }
   };
+
+  // Added handleMigrateData to resolve 'Cannot find name' error and allow syncing local data to Firestore
+  const handleMigrateData = async () => {
+    if (!user) return;
+    try {
+      const userId = user.uid;
+      const batch = writeBatch(db);
+      
+      products.forEach(p => batch.set(doc(db, 'users', userId, 'products', p.id), sanitizeForFirestore(p)));
+      sales.forEach(s => batch.set(doc(db, 'users', userId, 'sales', s.id), sanitizeForFirestore(s)));
+      paymentMethods.forEach(pm => batch.set(doc(db, 'users', userId, 'paymentMethods', pm.id), sanitizeForFirestore(pm)));
+      transfers.forEach(t => batch.set(doc(db, 'users', userId, 'transfers', t.id), sanitizeForFirestore(t)));
+      cashMovements.forEach(m => batch.set(doc(db, 'users', userId, 'cashMovements', m.id), sanitizeForFirestore(m)));
+      suppliers.forEach(sup => batch.set(doc(db, 'users', userId, 'suppliers', sup.id), sanitizeForFirestore(sup)));
+      expenses.forEach(e => batch.set(doc(db, 'users', userId, 'expenses', e.id), sanitizeForFirestore(e)));
+      customers.forEach(c => batch.set(doc(db, 'users', userId, 'customers', c.id), sanitizeForFirestore(c)));
+      promotions.forEach(p => batch.set(doc(db, 'users', userId, 'promotions', p.id), sanitizeForFirestore(p)));
+      combos.forEach(c => batch.set(doc(db, 'users', userId, 'combos', c.id), sanitizeForFirestore(c)));
+      batch.set(doc(db, 'users', userId, 'settings', 'config'), sanitizeForFirestore({ lowStockThreshold, storeProfile }), { merge: true });
+
+      await batch.commit();
+      alert("¡Sincronización exitosa! Tus datos ahora están respaldados en la nube.");
+    } catch (e) {
+      console.error("Migration error:", e);
+      alert("Error al sincronizar datos.");
+    }
+  };
   
-  // LOGOUT (Does NOT reset userRole to ADMIN to maintain lock)
   const handleLogout = () => signOut(auth).then(() => { 
     setIsGuestMode(false); 
-    // We intentionally do NOT reset userRole to 'ADMIN' here.
-    // This allows the device to stay in 'SELLER' mode if configured.
   });
 
   const toggleRole = () => {
@@ -611,9 +619,10 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (view) {
       case 'DASHBOARD': return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
-      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
+      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} combos={combos} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
       case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} onAdjustDebt={handleAdjustCustomerDebt} />;
       case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
+      case 'COMBOS': return userRole === 'ADMIN' ? <Combos combos={combos} products={products} onAddCombo={handleAddCombo} onDeleteCombo={handleDeleteCombo} onToggleCombo={handleToggleCombo} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
@@ -634,7 +643,7 @@ const App: React.FC = () => {
         onLogout={handleLogout} 
         userRole={userRole} 
         onToggleRole={toggleRole}
-        storeProfile={storeProfile} // Pasamos el perfil de la tienda al Layout
+        storeProfile={storeProfile} 
       >
         {renderContent()}
       </Layout>

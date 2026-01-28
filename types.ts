@@ -8,28 +8,49 @@ export interface Product {
   category: string;
   barcode?: string;
   isVariablePrice?: boolean; 
-  isFavorite?: boolean; // New v3.0: Quick access in POS
+  isFavorite?: boolean; 
 }
 
 export interface Promotion {
   id: string;
-  name: string; // ej: "3x Harina"
+  name: string; 
   productId: string;
-  triggerQuantity: number; // ej: 3
-  promotionalPrice: number; // ej: 1500 (precio unitario al activar promo)
+  triggerQuantity: number; 
+  promotionalPrice: number; 
+  isActive: boolean;
+}
+
+export interface ComboPart {
+  name: string;
+  eligibleProductIds: string[];
+}
+
+export interface Combo {
+  id: string;
+  name: string;
+  price: number;
+  parts: ComboPart[];
   isActive: boolean;
 }
 
 export interface PaymentMethod {
   id: string;
   name: string;
-  type: 'CASH' | 'CARD' | 'DIGITAL' | 'OTHER' | 'CREDIT'; // CREDIT added for "Fiado"
+  type: 'CASH' | 'CARD' | 'DIGITAL' | 'OTHER' | 'CREDIT'; 
   balance: number;
 }
 
-export interface CartItem extends Product {
+export interface CartItem extends Partial<Product> {
+  id: string;
+  name: string;
   quantity: number;
-  appliedPromotionId?: string; // Para saber si se aplicó promo
+  sellingPrice: number;
+  costPrice?: number;
+  category?: string;
+  isVariablePrice?: boolean;
+  appliedPromotionId?: string;
+  isCombo?: boolean;
+  selectedProductIds?: string[]; // IDs of products chosen for combo parts
 }
 
 export interface SaleItem {
@@ -40,6 +61,8 @@ export interface SaleItem {
   unitCost: number;
   subtotal: number;
   isPromo?: boolean;
+  isCombo?: boolean;
+  comboComponentIds?: string[]; // To track what was deducted
 }
 
 export interface InvoiceData {
@@ -69,8 +92,8 @@ export interface Sale {
   paymentMethodName: string;
   payments?: PaymentDetail[];
   invoice?: InvoiceData;
-  customerId?: string; // New v3.0
-  status?: 'COMPLETED' | 'PENDING_PAYMENT'; // New v3.0: PENDING_PAYMENT = Fiado
+  customerId?: string; 
+  status?: 'COMPLETED' | 'PENDING_PAYMENT'; 
 }
 
 export interface Customer {
@@ -79,7 +102,7 @@ export interface Customer {
   phone?: string;
   dni?: string;
   address?: string;
-  balance: number; // Positive means they owe us money
+  balance: number; 
   lastPurchaseDate?: number;
   notes?: string;
 }
@@ -96,12 +119,12 @@ export interface Transfer {
 export interface CashMovement {
   id: string;
   timestamp: number;
-  type: 'INCOME' | 'EXPENSE'; // INGRESO (Inyeccion) o GASTO (Retiro)
+  type: 'INCOME' | 'EXPENSE'; 
   amount: number;
   description: string;
   methodId: string;
   methodName: string;
-  userId?: string; // Who made the movement
+  userId?: string; 
 }
 
 export interface Supplier {
@@ -132,10 +155,10 @@ export interface StoreProfile {
   startDate: string;
   ivaCondition: string;
   sellerPin?: string;
-  logoUrl?: string; // New: Custom logo
+  logoUrl?: string; 
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS';
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS' | 'COMBOS';
 
 export type UserRole = 'ADMIN' | 'SELLER';
 
