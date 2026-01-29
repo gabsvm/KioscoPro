@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Sale, PaymentMethod } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Calendar, Filter } from 'lucide-react';
+import { Calendar, Filter, DollarSign, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 interface ReportsProps {
@@ -21,6 +21,19 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
     const end = new Date(dateRange.end).getTime() + (86400000 - 1); // End of day
     return sales.filter(s => s.timestamp >= start && s.timestamp <= end);
   }, [sales, dateRange]);
+
+  // Calculations for Summary Cards
+  const totalRevenue = useMemo(() => {
+    return filteredSales.reduce((acc, sale) => acc + sale.totalAmount, 0);
+  }, [filteredSales]);
+
+  const totalProfit = useMemo(() => {
+    return filteredSales.reduce((acc, sale) => acc + (sale.totalProfit || 0), 0);
+  }, [filteredSales]);
+
+  const totalTransactions = filteredSales.length;
+
+  const averageTicket = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
   // Quick Filters Handlers
   const setToday = () => {
@@ -135,6 +148,57 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
         </div>
       </div>
 
+      {/* Highlights Strip - Added per user request */}
+      <div className="bg-slate-800 text-white p-4 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-in fade-in slide-in-from-top-2">
+         <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg"><Wallet size={24} /></div>
+            <div>
+               <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Total Ventas Periodo Seleccionado</p>
+               <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+            </div>
+         </div>
+         <div className="h-full w-px bg-white/10 hidden md:block"></div>
+         <div className="flex items-center gap-3">
+            <div className="text-right">
+               <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Ganancia Estimada</p>
+               <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalProfit)}</p>
+            </div>
+         </div>
+      </div>
+
+      {/* Summary Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+             <div>
+               <p className="text-sm font-medium text-slate-500 uppercase">Total Vendido</p>
+               <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(totalRevenue)}</h3>
+             </div>
+             <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+               <DollarSign size={24} />
+             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+             <div>
+               <p className="text-sm font-medium text-slate-500 uppercase">Transacciones</p>
+               <h3 className="text-3xl font-bold text-slate-800 mt-1">{totalTransactions}</h3>
+             </div>
+             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
+               <ShoppingCart size={24} />
+             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+             <div>
+               <p className="text-sm font-medium text-slate-500 uppercase">Ticket Promedio</p>
+               <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(averageTicket)}</h3>
+             </div>
+             <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+               <TrendingUp size={24} />
+             </div>
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Payment Methods Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -204,39 +268,4 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                    <td className="px-6 py-3">
                      {sale.payments && sale.payments.length > 1 ? (
                         <div className="flex flex-col gap-1">
-                          {sale.payments.map((p, idx) => (
-                             <span key={idx} className="bg-indigo-50 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 border border-indigo-100 w-fit">
-                               {p.methodName}: {formatCurrency(p.amount)}
-                             </span>
-                          ))}
-                        </div>
-                     ) : (
-                        <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">
-                          {sale.paymentMethodName}
-                        </span>
-                     )}
-                   </td>
-                   <td className="px-6 py-3 text-slate-600 max-w-xs truncate">
-                     {sale.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')}
-                   </td>
-                   <td className="px-6 py-3 text-right font-bold text-slate-800">
-                     {formatCurrency(sale.totalAmount)}
-                   </td>
-                </tr>
-              ))}
-              {filteredSales.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                    No hay ventas en este rango de fechas
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Reports;
+                          {sale.payments.map((
