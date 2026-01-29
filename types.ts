@@ -23,6 +23,7 @@ export interface Promotion {
 export interface ComboPart {
   name: string;
   eligibleProductIds: string[];
+  limit: number; // Quantity of products to select for this part
 }
 
 export interface Combo {

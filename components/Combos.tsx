@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Layers, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle, PlusCircle } from 'lucide-react';
+import { Layers, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle, PlusCircle, CheckSquare, Square } from 'lucide-react';
 import { Combo, Product, ComboPart } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -20,7 +20,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
   const [comboName, setComboName] = useState('');
   const [comboPrice, setComboPrice] = useState('');
   const [parts, setParts] = useState<ComboPart[]>([
-    { name: 'Parte 1', eligibleProductIds: [] }
+    { name: 'Parte 1', eligibleProductIds: [], limit: 1 }
   ]);
   
   // Product Selection helper
@@ -32,6 +32,10 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
     if (parts.some(p => p.eligibleProductIds.length === 0)) {
        alert("Cada parte del combo debe tener al menos un producto elegido.");
        return;
+    }
+    if (parts.some(p => p.limit < 1)) {
+        alert("La cantidad a elegir por parte debe ser al menos 1.");
+        return;
     }
     onAddCombo({
       name: comboName,
@@ -46,11 +50,11 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
   const resetForm = () => {
     setComboName('');
     setComboPrice('');
-    setParts([{ name: 'Parte 1', eligibleProductIds: [] }]);
+    setParts([{ name: 'Parte 1', eligibleProductIds: [], limit: 1 }]);
   };
 
   const addPart = () => {
-    setParts([...parts, { name: `Parte ${parts.length + 1}`, eligibleProductIds: [] }]);
+    setParts([...parts, { name: `Parte ${parts.length + 1}`, eligibleProductIds: [], limit: 1 }]);
   };
 
   const removePart = (index: number) => {
@@ -60,6 +64,12 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
   const updatePartName = (index: number, name: string) => {
     const n = [...parts];
     n[index].name = name;
+    setParts(n);
+  };
+
+  const updatePartLimit = (index: number, limit: number) => {
+    const n = [...parts];
+    n[index].limit = Math.max(1, limit);
     setParts(n);
   };
 
@@ -120,7 +130,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
                       {combo.parts.map((p, i) => (
                          <div key={i} className="text-xs text-slate-500 flex items-center gap-1">
                             <ArrowRight size={10} className="text-indigo-400" />
-                            <span className="font-bold">{p.name}:</span> {p.eligibleProductIds.length} opciones
+                            <span className="font-bold">{p.name} (x{p.limit || 1}):</span> {p.eligibleProductIds.length} opciones
                          </div>
                       ))}
                    </div>
@@ -163,24 +173,51 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
                     </div>
 
                     {parts.map((part, pIdx) => (
-                       <div key={pIdx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-                          <div className="flex justify-between items-center gap-4">
-                             <input 
-                               value={part.name} 
-                               onChange={e => updatePartName(pIdx, e.target.value)}
-                               className="bg-white border p-2 rounded flex-1 font-bold text-sm outline-none"
-                               placeholder="Ej. Sabor de Empanada"
-                             />
-                             <button onClick={() => removePart(pIdx)} className="text-red-400"><Trash2 size={20}/></button>
+                       <div key={pIdx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 transition-all">
+                          <div className="flex justify-between items-start gap-4">
+                             <div className="flex-1 space-y-3">
+                                <input 
+                                   value={part.name} 
+                                   onChange={e => updatePartName(pIdx, e.target.value)}
+                                   className="w-full bg-white border p-2 rounded font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                   placeholder="Nombre de la parte (Ej. Empanadas)"
+                                />
+
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none bg-white px-2 py-1.5 rounded border border-slate-200 hover:bg-slate-50 transition-colors">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(part.limit || 1) > 1}
+                                            onChange={e => updatePartLimit(pIdx, e.target.checked ? 2 : 1)}
+                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer accent-indigo-600"
+                                        />
+                                        <span>Selección Múltiple (Más de 1)</span>
+                                    </label>
+
+                                    {(part.limit || 1) > 1 && (
+                                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
+                                            <span className="text-xs font-bold text-slate-500">Cantidad:</span>
+                                            <input 
+                                                type="number"
+                                                min="2"
+                                                value={part.limit}
+                                                onChange={e => updatePartLimit(pIdx, parseInt(e.target.value))}
+                                                className="w-16 p-1.5 border border-slate-300 rounded text-center font-bold text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                             </div>
+                             <button onClick={() => removePart(pIdx)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors"><Trash2 size={20}/></button>
                           </div>
                           
                           <div className="space-y-2">
-                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Elegir Productos Elegibles</label>
+                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Productos Elegibles ({part.eligibleProductIds.length})</label>
                              <div className="relative">
                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                 <input 
-                                   placeholder="Filtrar productos..." 
-                                   className="w-full pl-8 pr-4 py-1.5 text-xs border rounded bg-white outline-none"
+                                   placeholder="Buscar productos para incluir..." 
+                                   className="w-full pl-8 pr-4 py-1.5 text-xs border rounded bg-white outline-none focus:border-indigo-300 transition-colors"
                                    onChange={e => {
                                       setProductSearch(e.target.value);
                                       setActivePartIndex(pIdx);
@@ -188,8 +225,8 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
                                 />
                              </div>
                              
-                             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1">
-                                {products.filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1 custom-scrollbar">
+                                {products.filter(p => !productSearch || activePartIndex !== pIdx || p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
                                    <button 
                                       key={p.id}
                                       onClick={() => toggleProductInPart(pIdx, p.id)}
@@ -206,8 +243,8 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
               </div>
 
               <div className="p-4 bg-slate-50 border-t flex gap-3">
-                 <button onClick={() => setShowModal(false)} className="flex-1 py-3 bg-white border rounded-xl font-bold text-slate-600">Cancelar</button>
-                 <button onClick={handleAddCombo} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Guardar Combo</button>
+                 <button onClick={() => setShowModal(false)} className="flex-1 py-3 bg-white border rounded-xl font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+                 <button onClick={handleAddCombo} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">Guardar Combo</button>
               </div>
            </div>
         </div>

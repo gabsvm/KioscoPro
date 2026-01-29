@@ -34,7 +34,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   // Combo Selection State
   const [showComboModal, setShowComboModal] = useState(false);
   const [pendingCombo, setPendingCombo] = useState<Combo | null>(null);
-  const [comboChoices, setComboChoices] = useState<string[]>([]); // Array of selected product IDs per part
+  // comboChoices now stores an array of strings (product IDs) for each part
+  // Index i corresponds to parts[i]. The inner array contains selected IDs.
+  const [comboChoices, setComboChoices] = useState<string[][]>([]);
 
   // Payment State
   const [selectedMethod, setSelectedMethod] = useState<string>('');
@@ -149,19 +151,67 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
 
   const addComboToCart = (combo: Combo) => {
      setPendingCombo(combo);
-     setComboChoices(new Array(combo.parts.length).fill(''));
+     // Initialize choice arrays for each part
+     setComboChoices(combo.parts.map(() => []));
      setShowComboModal(true);
   };
 
+  const selectComboProduct = (partIndex: number, productId: string) => {
+     if (!pendingCombo) return;
+     const part = pendingCombo.parts[partIndex];
+     const limit = part.limit || 1;
+     
+     setComboChoices(prev => {
+        const newChoices = [...prev];
+        const currentPartChoices = [...newChoices[partIndex]];
+        
+        // If we are just toggling a radio button (limit 1)
+        if (limit === 1) {
+           newChoices[partIndex] = [productId];
+        } else {
+           // Multi-select logic
+           // Just add it, provided we haven't reached the limit
+           if (currentPartChoices.length < limit) {
+              currentPartChoices.push(productId);
+              newChoices[partIndex] = currentPartChoices;
+           }
+        }
+        return newChoices;
+     });
+  };
+
+  const removeComboProduct = (partIndex: number, productId: string) => {
+      setComboChoices(prev => {
+         const newChoices = [...prev];
+         const currentPartChoices = [...newChoices[partIndex]];
+         const idxToRemove = currentPartChoices.indexOf(productId);
+         if (idxToRemove !== -1) {
+             currentPartChoices.splice(idxToRemove, 1);
+             newChoices[partIndex] = currentPartChoices;
+         }
+         return newChoices;
+      });
+  };
+
   const confirmCombo = () => {
-     if (!pendingCombo || comboChoices.some(c => !c)) return;
+     if (!pendingCombo) return;
+     
+     // Check validity: Are all parts fully selected?
+     const isValid = pendingCombo.parts.every((part, idx) => {
+        const limit = part.limit || 1;
+        return comboChoices[idx]?.length === limit;
+     });
+
+     if (!isValid) return;
+
      const comboItem: CartItem = {
         id: `combo-${pendingCombo.id}-${Date.now()}`,
         name: pendingCombo.name,
         sellingPrice: pendingCombo.price,
         quantity: 1,
         isCombo: true,
-        selectedProductIds: [...comboChoices]
+        // Flatten the selections into a single array of IDs
+        selectedProductIds: comboChoices.flat()
      };
      setCart(prev => [...prev, comboItem]);
      setShowComboModal(false);
@@ -515,39 +565,74 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                </div>
                
                <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
-                  {pendingCombo.parts.map((part, idx) => (
-                     <div key={idx} className="space-y-2">
-                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest">{part.name}</label>
+                  {pendingCombo.parts.map((part, idx) => {
+                     const limit = part.limit || 1;
+                     const currentSelections = comboChoices[idx] || [];
+                     const currentCount = currentSelections.length;
+                     const isComplete = currentCount === limit;
+
+                     return (
+                     <div key={idx} className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">{part.name}</label>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {currentCount} / {limit} seleccionados
+                            </span>
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
                            {part.eligibleProductIds.map(pid => {
                               const prod = products.find(p => p.id === pid);
                               if (!prod) return null;
+                              
+                              // Count how many of THIS product are selected
+                              const qtySelected = currentSelections.filter(id => id === pid).length;
+                              
                               return (
                                  <button 
                                     key={pid}
-                                    onClick={() => setComboChoices(prev => {
-                                       const n = [...prev];
-                                       n[idx] = pid;
-                                       return n;
-                                    })}
-                                    className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${comboChoices[idx] === pid ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                                    onClick={() => selectComboProduct(idx, pid)}
+                                    disabled={currentCount >= limit && qtySelected === 0 && limit > 1} // Disable adding new ones if limit reached, unless it's single select toggle
+                                    className={`relative p-3 rounded-lg border text-left text-sm font-medium transition-all flex flex-col justify-between min-h-[60px] 
+                                        ${qtySelected > 0 ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}
+                                        ${currentCount >= limit && qtySelected === 0 && limit > 1 ? 'opacity-50 cursor-not-allowed' : ''}
+                                    `}
                                  >
-                                    <div className="truncate">{prod.name}</div>
+                                    <div className="truncate w-full pr-6">{prod.name}</div>
                                     <div className="text-[10px] opacity-70">Stock: {prod.stock}</div>
+                                    
+                                    {/* Multi-select controls */}
+                                    {limit > 1 && qtySelected > 0 && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 items-center" onClick={e => e.stopPropagation()}>
+                                            <div className="font-bold text-lg leading-none">{qtySelected}</div>
+                                            <div 
+                                                className="bg-red-100 text-red-600 rounded-full p-0.5 hover:bg-red-200 cursor-pointer"
+                                                onClick={() => removeComboProduct(idx, pid)}
+                                            >
+                                                <Minus size={12} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Single select indicator */}
+                                    {limit === 1 && qtySelected > 0 && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600">
+                                            <CheckCircle size={16} />
+                                        </div>
+                                    )}
                                  </button>
                               );
                            })}
                         </div>
                      </div>
-                  ))}
+                  );
+                  })}
                </div>
 
                <div className="mt-6 pt-4 border-t flex gap-3">
                   <button onClick={() => setShowComboModal(false)} className="flex-1 py-3 text-slate-600 font-bold bg-slate-100 rounded-xl">Cancelar</button>
                   <button 
                      onClick={confirmCombo} 
-                     disabled={comboChoices.some(c => !c)}
-                     className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50"
+                     disabled={comboChoices.some((choices, idx) => choices.length !== (pendingCombo.parts[idx].limit || 1))}
+                     className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                      Agregar al Carrito
                   </button>
