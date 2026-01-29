@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 // Added 'X' to the lucide-react imports
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp, Calculator } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion, Combo } from '../types';
 import InvoiceModal from './InvoiceModal';
 import { formatCurrency } from '../utils';
@@ -98,6 +98,12 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
      const m = paymentMethods.find(pm => pm.id === selectedMethod);
      return m?.type === 'CASH';
   }, [selectedMethod, paymentMethods]);
+
+  const changeAmount = useMemo(() => {
+    const received = parseFloat(cashReceived);
+    if (isNaN(received) || received < cartTotal) return 0;
+    return received - cartTotal;
+  }, [cashReceived, cartTotal]);
 
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
@@ -409,17 +415,86 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
               <button onClick={() => setShowCheckout(true)} disabled={cart.length === 0} className="w-full bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-brand-200">Cobrar</button>
             ) : (
               <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-200 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
+                
+                {/* Method Toggles */}
                 <div className="flex p-1 bg-slate-200 rounded-lg">
-                  <button onClick={() => setIsSplitPayment(false)} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${!isSplitPayment ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>Simple</button>
-                  <button onClick={() => setIsSplitPayment(true)} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${isSplitPayment ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}><Split size={12} /> Mixto</button>
+                  <button onClick={() => {setIsSplitPayment(false); setIsCreditSale(false)}} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${!isSplitPayment && !isCreditSale ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>Simple</button>
+                  <button onClick={() => {setIsSplitPayment(true); setIsCreditSale(false)}} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${isSplitPayment ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}><Split size={12} /> Mixto</button>
+                  <button onClick={() => {setIsCreditSale(true); setIsSplitPayment(false)}} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${isCreditSale ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}><Users size={12} /> Fiado</button>
                 </div>
-                {!isSplitPayment && (
-                   <div className="grid grid-cols-2 gap-2">
-                     {paymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
-                        <button key={method.id} onClick={() => setSelectedMethod(method.id)} className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${selectedMethod === method.id ? 'bg-brand-100 border-brand-500 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{method.name}</button>
-                     ))}
+
+                {isCreditSale ? (
+                  /* Fiado Section */
+                  <div className="space-y-3 p-2 bg-orange-50 border border-orange-100 rounded-lg">
+                     <label className="text-xs font-bold text-orange-800 uppercase block">Seleccionar Cliente</label>
+                     <select 
+                       value={selectedCustomerId}
+                       onChange={e => setSelectedCustomerId(e.target.value)}
+                       className="w-full p-2 bg-white border border-orange-200 rounded outline-none text-sm"
+                     >
+                       <option value="">Buscar cliente...</option>
+                       {customers.map(c => (
+                         <option key={c.id} value={c.id}>{c.name} (Deuda: {formatCurrency(c.balance)})</option>
+                       ))}
+                     </select>
+                     {selectedCustomerId ? (
+                        <div className="flex items-center gap-2 text-xs text-orange-700 bg-white p-2 rounded border border-orange-100">
+                           <CheckCircle size={14} /> Se sumará a su cuenta corriente.
+                        </div>
+                     ) : (
+                        <div className="text-xs text-orange-400 italic">Debes seleccionar un cliente.</div>
+                     )}
+                  </div>
+                ) : !isSplitPayment ? (
+                   /* Simple Payment Section */
+                   <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        {paymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
+                           <button key={method.id} onClick={() => { setSelectedMethod(method.id); setCashReceived(''); }} className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${selectedMethod === method.id ? 'bg-brand-100 border-brand-500 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{method.name}</button>
+                        ))}
+                      </div>
+
+                      {/* Cash Calculator */}
+                      {isSelectedMethodCash && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
+                           <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Banknote size={12} /> Abona con ($)</label>
+                              <input 
+                                type="number" 
+                                min="0" 
+                                placeholder={cartTotal.toString()}
+                                value={cashReceived}
+                                onChange={e => setCashReceived(e.target.value)}
+                                className="w-full mt-1 p-2 text-lg font-bold border rounded outline-none focus:ring-2 focus:ring-brand-500"
+                              />
+                           </div>
+                           <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                              <span className="text-xs font-bold text-slate-500">SU VUELTO:</span>
+                              <span className={`text-xl font-bold ${changeAmount < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                 {formatCurrency(Math.max(0, changeAmount))}
+                              </span>
+                           </div>
+                        </div>
+                      )}
+                   </div>
+                ) : (
+                   /* Split Payment UI (Existing) */
+                   <div className="space-y-2">
+                      {paymentMethods.map(method => (
+                         <div key={method.id} className="flex items-center gap-2">
+                            <span className="text-xs font-medium w-24 truncate">{method.name}</span>
+                            <input 
+                              type="number" 
+                              placeholder="0.00"
+                              value={splitAmounts[method.id] || ''}
+                              onChange={e => setSplitAmounts(prev => ({...prev, [method.id]: e.target.value}))}
+                              className="flex-1 p-2 border rounded text-sm"
+                            />
+                         </div>
+                      ))}
                    </div>
                 )}
+                
                 <div className="flex gap-2 pt-2">
                    <button onClick={() => setShowCheckout(false)} className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold">Volver</button>
                    <button onClick={handleCheckout} className="flex-[2] bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"><CheckCircle size={18} /> Confirmar</button>
