@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 // Added 'X' to the lucide-react imports
-import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp, Calculator } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp, Calculator, Loader2 } from 'lucide-react';
 import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion, Combo } from '../types';
 import InvoiceModal from './InvoiceModal';
 import { formatCurrency } from '../utils';
@@ -45,6 +45,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   const [cashReceived, setCashReceived] = useState('');
   const [isCreditSale, setIsCreditSale] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  
+  // Processing State to prevent duplicates
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Invoice State
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -256,63 +259,74 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (isProcessing) return; // Prevent double clicks
+
     if (isCreditSale && !selectedCustomerId) {
        alert("Debes seleccionar un cliente para vender 'Fiado'.");
        return;
     }
 
-    const finalCartItems = cart.map(item => {
-      const promo = getApplicablePromotion(item);
-      if (promo) {
-        return {
-          ...item,
-          sellingPrice: Number(promo.promotionalPrice), 
-          appliedPromotionId: promo.id
+    setIsProcessing(true); // Lock the button
+
+    try {
+      const finalCartItems = cart.map(item => {
+        const promo = getApplicablePromotion(item);
+        if (promo) {
+          return {
+            ...item,
+            sellingPrice: Number(promo.promotionalPrice), 
+            appliedPromotionId: promo.id
+          };
+        }
+        return item;
+      });
+
+      const finalTotal = finalCartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
+      let finalPayments: PaymentDetail[] = [];
+
+      if (isCreditSale) {
+          finalPayments.push({ methodId: 'CREDIT_ACCOUNT', methodName: 'Cuenta Corriente', amount: finalTotal });
+      } else if (isSplitPayment) {
+        (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
+          const amount = parseFloat(amountStr);
+          if (amount > 0) {
+            const method = paymentMethods.find(m => m.id === methodId);
+            if (method) finalPayments.push({ methodId, methodName: method.name, amount });
+          }
+        });
+      } else {
+        const method = paymentMethods.find(m => m.id === selectedMethod);
+        if (!method) throw new Error("Método de pago no válido");
+        finalPayments.push({ methodId: selectedMethod, methodName: method.name, amount: finalTotal });
+      }
+
+      let invoiceData: InvoiceData | undefined = undefined;
+      if (showInvoiceForm) {
+        invoiceData = {
+          type: invoiceType,
+          number: `0000${Math.floor(Math.random() * 10000)}`,
+          clientName, clientCuit, clientAddress: '', conditionIva
         };
       }
-      return item;
-    });
 
-    const finalTotal = finalCartItems.reduce((acc, item) => acc + (item.sellingPrice * item.quantity), 0);
-    let finalPayments: PaymentDetail[] = [];
+      const sale = await onCompleteSale(finalCartItems, finalPayments, invoiceData, selectedCustomerId, isCreditSale);
+      if (sale) setLastSale(sale);
 
-    if (isCreditSale) {
-        finalPayments.push({ methodId: 'CREDIT_ACCOUNT', methodName: 'Cuenta Corriente', amount: finalTotal });
-    } else if (isSplitPayment) {
-      (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
-        const amount = parseFloat(amountStr);
-        if (amount > 0) {
-          const method = paymentMethods.find(m => m.id === methodId);
-          if (method) finalPayments.push({ methodId, methodName: method.name, amount });
-        }
-      });
-    } else {
-       const method = paymentMethods.find(m => m.id === selectedMethod);
-       if (!method) return;
-       finalPayments.push({ methodId: selectedMethod, methodName: method.name, amount: finalTotal });
+      setCart([]);
+      setShowCheckout(false);
+      setShowInvoiceForm(false);
+      setMobileView('CATALOG');
+      setIsCreditSale(false);
+      setSelectedCustomerId('');
+      setSplitAmounts({});
+      setIsSplitPayment(false);
+      setCashReceived(''); 
+    } catch (error) {
+      console.error("Error processing sale:", error);
+      alert("Hubo un error al procesar la venta. Intente nuevamente.");
+    } finally {
+      setIsProcessing(false); // Unlock the button
     }
-
-    let invoiceData: InvoiceData | undefined = undefined;
-    if (showInvoiceForm) {
-      invoiceData = {
-        type: invoiceType,
-        number: `0000${Math.floor(Math.random() * 10000)}`,
-        clientName, clientCuit, clientAddress: '', conditionIva
-      };
-    }
-
-    const sale = await onCompleteSale(finalCartItems, finalPayments, invoiceData, selectedCustomerId, isCreditSale);
-    if (sale) setLastSale(sale);
-
-    setCart([]);
-    setShowCheckout(false);
-    setShowInvoiceForm(false);
-    setMobileView('CATALOG');
-    setIsCreditSale(false);
-    setSelectedCustomerId('');
-    setSplitAmounts({});
-    setIsSplitPayment(false);
-    setCashReceived(''); 
   };
 
   return (
@@ -546,8 +560,22 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                 )}
                 
                 <div className="flex gap-2 pt-2">
-                   <button onClick={() => setShowCheckout(false)} className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold">Volver</button>
-                   <button onClick={handleCheckout} className="flex-[2] bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"><CheckCircle size={18} /> Confirmar</button>
+                   <button onClick={() => setShowCheckout(false)} disabled={isProcessing} className="flex-1 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold disabled:opacity-50">Volver</button>
+                   <button 
+                     onClick={handleCheckout} 
+                     disabled={isProcessing}
+                     className="flex-[2] bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     {isProcessing ? (
+                        <>
+                           <Loader2 size={18} className="animate-spin" /> Procesando...
+                        </>
+                     ) : (
+                        <>
+                           <CheckCircle size={18} /> Confirmar
+                        </>
+                     )}
+                   </button>
                 </div>
               </div>
             )}

@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Sale, PaymentMethod } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Calendar, Filter, DollarSign, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
+import { Calendar, DollarSign, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 interface ReportsProps {
@@ -268,4 +267,41 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
                    <td className="px-6 py-3">
                      {sale.payments && sale.payments.length > 1 ? (
                         <div className="flex flex-col gap-1">
-                          {sale.payments.map((
+                          {sale.payments.map((p, i) => (
+                             <span key={i} className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded border border-slate-200 w-fit whitespace-nowrap">
+                               {p.methodName}: {formatCurrency(p.amount)}
+                             </span>
+                          ))}
+                        </div>
+                     ) : (
+                        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-600 border border-slate-200">
+                           {sale.paymentMethodName}
+                        </span>
+                     )}
+                   </td>
+                   <td className="px-6 py-3 text-slate-600">
+                     <span className="line-clamp-2" title={sale.items.map(i => i.productName).join(', ')}>
+                       {sale.items.length} items ({sale.items.map(i => i.productName).slice(0, 2).join(', ')}{sale.items.length > 2 ? '...' : ''})
+                     </span>
+                   </td>
+                   <td className="px-6 py-3 text-right font-bold text-slate-800">
+                      {formatCurrency(sale.totalAmount)}
+                   </td>
+                </tr>
+              ))}
+              {filteredSales.length === 0 && (
+                 <tr>
+                   <td colSpan={5} className="px-6 py-8 text-center text-slate-400 bg-slate-50">
+                      No hay ventas en este período.
+                   </td>
+                 </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Reports;
