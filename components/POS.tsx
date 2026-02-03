@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 // Added 'X' to the lucide-react imports
 import { Search, ShoppingCart, Trash2, Plus, Minus, CheckCircle, CreditCard, Package, ArrowLeft, FileText, Split, Scale, Barcode, Star, PauseCircle, PlayCircle, User, Users, Tag, AlertCircle, Banknote, Layers, X, ChevronUp, Calculator, Loader2 } from 'lucide-react';
-import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion, Combo } from '../types';
+import { Product, PaymentMethod, CartItem, Sale, InvoiceData, StoreProfile, PaymentDetail, SuspendedSale, Customer, Promotion, Combo, UserRole } from '../types';
 import InvoiceModal from './InvoiceModal';
 import { formatCurrency } from '../utils';
 
@@ -14,9 +14,10 @@ interface POSProps {
   combos: Combo[]; // Added combos
   onCompleteSale: (items: CartItem[], payments: PaymentDetail[], invoiceData?: InvoiceData, customerId?: string, isCredit?: boolean) => Promise<Sale | undefined> | Sale | undefined;
   storeProfile: StoreProfile;
+  userRole?: UserRole;
 }
 
-const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotions, combos, onCompleteSale, storeProfile }) => {
+const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotions, combos, onCompleteSale, storeProfile, userRole = 'ADMIN' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -57,12 +58,18 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   const [invoiceType, setInvoiceType] = useState<'A' | 'B' | 'C'>('B');
   const [conditionIva, setConditionIva] = useState<InvoiceData['conditionIva']>('Consumidor Final');
 
+  // Filter payment methods based on role and visibility
+  const visiblePaymentMethods = useMemo(() => {
+    if (userRole === 'ADMIN') return paymentMethods;
+    return paymentMethods.filter(m => !m.isHiddenInSellerMode);
+  }, [paymentMethods, userRole]);
+
   useEffect(() => {
-    if (paymentMethods.length > 0 && !selectedMethod) {
-      const cash = paymentMethods.find(m => m.type === 'CASH');
-      setSelectedMethod(cash ? cash.id : paymentMethods[0].id);
+    if (visiblePaymentMethods.length > 0 && !selectedMethod) {
+      const cash = visiblePaymentMethods.find(m => m.type === 'CASH');
+      setSelectedMethod(cash ? cash.id : visiblePaymentMethods[0].id);
     }
-  }, [paymentMethods]);
+  }, [visiblePaymentMethods]);
 
   const getApplicablePromotion = useCallback((item: CartItem): Promotion | null => {
     if (item.isCombo) return null; // Combos don't have standard promos
@@ -100,9 +107,9 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   }, [cart]);
 
   const isSelectedMethodCash = useMemo(() => {
-     const m = paymentMethods.find(pm => pm.id === selectedMethod);
+     const m = visiblePaymentMethods.find(pm => pm.id === selectedMethod);
      return m?.type === 'CASH';
-  }, [selectedMethod, paymentMethods]);
+  }, [selectedMethod, visiblePaymentMethods]);
 
   const changeAmount = useMemo(() => {
     const received = parseFloat(cashReceived);
@@ -290,12 +297,12 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
         (Object.entries(splitAmounts) as [string, string][]).forEach(([methodId, amountStr]) => {
           const amount = parseFloat(amountStr);
           if (amount > 0) {
-            const method = paymentMethods.find(m => m.id === methodId);
+            const method = visiblePaymentMethods.find(m => m.id === methodId);
             if (method) finalPayments.push({ methodId, methodName: method.name, amount });
           }
         });
       } else {
-        const method = paymentMethods.find(m => m.id === selectedMethod);
+        const method = visiblePaymentMethods.find(m => m.id === selectedMethod);
         if (!method) throw new Error("Método de pago no válido");
         finalPayments.push({ methodId: selectedMethod, methodName: method.name, amount: finalTotal });
       }
@@ -513,7 +520,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                    /* Simple Payment Section */
                    <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
-                        {paymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
+                        {visiblePaymentMethods.filter(m => m.type !== 'CREDIT').map(method => (
                            <button key={method.id} onClick={() => { setSelectedMethod(method.id); setCashReceived(''); }} className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${selectedMethod === method.id ? 'bg-brand-100 border-brand-500 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{method.name}</button>
                         ))}
                       </div>
@@ -544,7 +551,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                 ) : (
                    /* Split Payment UI (Existing) */
                    <div className="space-y-2">
-                      {paymentMethods.map(method => (
+                      {visiblePaymentMethods.map(method => (
                          <div key={method.id} className="flex items-center gap-2">
                             <span className="text-xs font-medium w-24 truncate">{method.name}</span>
                             <input 

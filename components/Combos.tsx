@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Layers, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle, PlusCircle, CheckSquare, Square } from 'lucide-react';
+import { Layers, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle, PlusCircle, CheckSquare, Square, Pencil } from 'lucide-react';
 import { Combo, Product, ComboPart } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -8,12 +8,14 @@ interface CombosProps {
   combos: Combo[];
   products: Product[];
   onAddCombo: (p: Omit<Combo, 'id'>) => void;
+  onUpdateCombo: (p: Combo) => void;
   onDeleteCombo: (id: string) => void;
   onToggleCombo: (id: string, isActive: boolean) => void;
 }
 
-const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteCombo, onToggleCombo }) => {
+const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onUpdateCombo, onDeleteCombo, onToggleCombo }) => {
   const [showModal, setShowModal] = useState(false);
+  const [editingComboId, setEditingComboId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Form State
@@ -27,7 +29,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
   const [activePartIndex, setActivePartIndex] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
 
-  const handleAddCombo = (e: React.FormEvent) => {
+  const handleSaveCombo = (e: React.FormEvent) => {
     e.preventDefault();
     if (parts.some(p => p.eligibleProductIds.length === 0)) {
        alert("Cada parte del combo debe tener al menos un producto elegido.");
@@ -37,20 +39,43 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
         alert("La cantidad a elegir por parte debe ser al menos 1.");
         return;
     }
-    onAddCombo({
-      name: comboName,
-      price: parseFloat(comboPrice),
-      parts: parts,
-      isActive: true
-    });
+
+    if (editingComboId) {
+      onUpdateCombo({
+        id: editingComboId,
+        name: comboName,
+        price: parseFloat(comboPrice),
+        parts: parts,
+        isActive: combos.find(c => c.id === editingComboId)?.isActive ?? true
+      });
+    } else {
+      onAddCombo({
+        name: comboName,
+        price: parseFloat(comboPrice),
+        parts: parts,
+        isActive: true
+      });
+    }
+
     setShowModal(false);
     resetForm();
   };
 
+  const openEditModal = (combo: Combo) => {
+    setEditingComboId(combo.id);
+    setComboName(combo.name);
+    setComboPrice(combo.price.toString());
+    setParts(JSON.parse(JSON.stringify(combo.parts))); // Deep copy
+    setShowModal(true);
+  };
+
   const resetForm = () => {
+    setEditingComboId(null);
     setComboName('');
     setComboPrice('');
     setParts([{ name: 'Parte 1', eligibleProductIds: [], limit: 1 }]);
+    setProductSearch('');
+    setActivePartIndex(null);
   };
 
   const addPart = () => {
@@ -96,7 +121,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
            <p className="text-slate-500 text-sm">Crea combos de varios productos con precio fijo.</p>
         </div>
         <button 
-          onClick={() => { setShowModal(true); resetForm(); }}
+          onClick={() => { resetForm(); setShowModal(true); }}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md transition-colors"
         >
           <Plus size={20} /> Nuevo Combo
@@ -122,7 +147,10 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
              <div key={combo.id} className={`border rounded-xl p-4 flex flex-col justify-between transition-all ${combo.isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-70'}`}>
                 <div className="flex justify-between items-start mb-2">
                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Layers size={20} /></div>
-                   <button onClick={() => onDeleteCombo(combo.id)} className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg"><Trash2 size={18} /></button>
+                   <div className="flex gap-1">
+                      <button onClick={() => openEditModal(combo)} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"><Pencil size={18} /></button>
+                      <button onClick={() => onDeleteCombo(combo.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                   </div>
                 </div>
                 <div>
                    <h3 className="font-bold text-slate-800 text-lg leading-tight mb-1">{combo.name}</h3>
@@ -150,7 +178,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4">
            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95">
               <div className="p-4 border-b flex justify-between items-center">
-                 <h3 className="text-xl font-bold text-slate-800">Definir Nuevo Combo</h3>
+                 <h3 className="text-xl font-bold text-slate-800">{editingComboId ? 'Editar Combo' : 'Definir Nuevo Combo'}</h3>
                  <button onClick={() => setShowModal(false)}><X size={24} className="text-slate-400" /></button>
               </div>
 
@@ -244,7 +272,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onDeleteC
 
               <div className="p-4 bg-slate-50 border-t flex gap-3">
                  <button onClick={() => setShowModal(false)} className="flex-1 py-3 bg-white border rounded-xl font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
-                 <button onClick={handleAddCombo} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">Guardar Combo</button>
+                 <button onClick={handleSaveCombo} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">Guardar Combo</button>
               </div>
            </div>
         </div>

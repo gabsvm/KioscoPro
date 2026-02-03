@@ -39,6 +39,7 @@ export interface PaymentMethod {
   name: string;
   type: 'CASH' | 'CARD' | 'DIGITAL' | 'OTHER' | 'CREDIT'; 
   balance: number;
+  isHiddenInSellerMode?: boolean; // New property
 }
 
 export interface CartItem extends Partial<Product> {

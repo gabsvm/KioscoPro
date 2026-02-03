@@ -233,7 +233,8 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                  currentView === item.id ? (userRole === 'ADMIN' ? 'text-brand-600' : 'text-orange-600') : 'text-slate-400'
                }`}
              >
-               {React.cloneElement(item.icon as React.ReactElement, { size: 20 })}
+               {/* Fix: cast to React.ReactElement<any> to allow 'size' prop when cloning Lucide icons */}
+               {React.cloneElement(item.icon as React.ReactElement<any>, { size: 20 })}
                <span className="text-[10px] font-medium">{item.label}</span>
              </button>
            ))}

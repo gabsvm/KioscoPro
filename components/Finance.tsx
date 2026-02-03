@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Wallet, ArrowRightLeft, Plus, History, Pencil, Trash2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, ClipboardList, X, Calendar, ArrowRight } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Plus, History, Pencil, Trash2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, ClipboardList, X, Calendar, ArrowRight, EyeOff } from 'lucide-react';
 import { PaymentMethod, Transfer, CashMovement, Sale } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -9,8 +9,8 @@ interface FinanceProps {
   transfers: Transfer[];
   cashMovements?: CashMovement[];
   sales?: Sale[]; // Add sales to construct full history
-  onAddMethod: (name: string, type: PaymentMethod['type']) => void;
-  onUpdateMethod: (id: string, name: string, type: PaymentMethod['type']) => void;
+  onAddMethod: (name: string, type: PaymentMethod['type'], isHidden?: boolean) => void;
+  onUpdateMethod: (id: string, name: string, type: PaymentMethod['type'], isHidden?: boolean) => void;
   onDeleteMethod: (id: string) => void;
   onTransfer: (fromId: string, toId: string, amount: number, note: string) => void;
   onAddCashMovement?: (type: 'INCOME' | 'EXPENSE', amount: number, description: string, methodId: string) => void;
@@ -62,6 +62,7 @@ const Finance: React.FC<FinanceProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [methodName, setMethodName] = useState('');
   const [methodType, setMethodType] = useState<PaymentMethod['type']>('CASH');
+  const [isHiddenInSellerMode, setIsHiddenInSellerMode] = useState(false);
 
   // --- Logic for Box History ---
   const selectedHistoryMethod = paymentMethods.find(m => m.id === historyMethodId);
@@ -162,6 +163,7 @@ const Finance: React.FC<FinanceProps> = ({
     setEditingId(null);
     setMethodName('');
     setMethodType('CASH');
+    setIsHiddenInSellerMode(false);
     setShowMethodModal(true);
   };
 
@@ -169,15 +171,16 @@ const Finance: React.FC<FinanceProps> = ({
     setEditingId(method.id);
     setMethodName(method.name);
     setMethodType(method.type);
+    setIsHiddenInSellerMode(!!method.isHiddenInSellerMode);
     setShowMethodModal(true);
   };
 
   const handleMethodSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      onUpdateMethod(editingId, methodName, methodType);
+      onUpdateMethod(editingId, methodName, methodType, isHiddenInSellerMode);
     } else {
-      onAddMethod(methodName, methodType);
+      onAddMethod(methodName, methodType, isHiddenInSellerMode);
     }
     setShowMethodModal(false);
     setMethodName('');
@@ -254,7 +257,7 @@ const Finance: React.FC<FinanceProps> = ({
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {paymentMethods.map(method => (
-          <div key={method.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div key={method.id} className={`bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow ${method.isHiddenInSellerMode ? 'ring-2 ring-slate-100 ring-offset-2' : ''}`}>
             
             {/* Action Buttons */}
             <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -286,7 +289,14 @@ const Finance: React.FC<FinanceProps> = ({
             </div>
             
             <div className="relative z-10 cursor-pointer" onClick={() => setHistoryMethodId(method.id)}>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{method.type}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{method.type}</span>
+                {method.isHiddenInSellerMode && (
+                  <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 border border-slate-200">
+                    <EyeOff size={10} /> OCULTA
+                  </span>
+                )}
+              </div>
               <h3 className="text-lg font-bold text-slate-800 mt-1 pr-16 truncate">{method.name}</h3>
               <div className="mt-4 text-3xl font-bold text-brand-600">
                 {formatCurrency(method.balance)}
@@ -571,6 +581,20 @@ const Finance: React.FC<FinanceProps> = ({
                    <option value="OTHER">Otro</option>
                  </select>
                </div>
+               
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-3">
+                 <input 
+                   type="checkbox" 
+                   id="hideMethod" 
+                   checked={isHiddenInSellerMode} 
+                   onChange={e => setIsHiddenInSellerMode(e.target.checked)}
+                   className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                 />
+                 <label htmlFor="hideMethod" className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2 select-none">
+                   <EyeOff size={18} className="text-slate-500" /> Ocultar en modo vendedor
+                 </label>
+               </div>
+
                <div className="flex gap-3 pt-2">
                 <button 
                   type="button" 

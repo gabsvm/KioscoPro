@@ -256,6 +256,12 @@ const App: React.FC = () => {
     else { const u = [...combos, combo]; setCombos(u); saveLocal('combos', u); }
   };
 
+  const handleUpdateCombo = async (updatedCombo: Combo) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await setDoc(doc(db, 'users', user.uid, 'combos', updatedCombo.id), sanitizeForFirestore(updatedCombo));
+    else { const u = combos.map(c => c.id === updatedCombo.id ? updatedCombo : c); setCombos(u); saveLocal('combos', u); }
+  };
+
   const handleDeleteCombo = async (id: string) => {
     if (userRole !== 'ADMIN') return;
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'combos', id));
@@ -515,16 +521,16 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddMethod = async (name: string, type: PaymentMethod['type']) => {
+  const handleAddMethod = async (name: string, type: PaymentMethod['type'], isHiddenInSellerMode?: boolean) => {
     if (userRole !== 'ADMIN') return;
-    const newMethod = { id: uuidv4(), name, type, balance: 0 };
+    const newMethod = { id: uuidv4(), name, type, balance: 0, isHiddenInSellerMode };
     if (user) await setDoc(doc(db, 'users', user.uid, 'paymentMethods', newMethod.id), sanitizeForFirestore(newMethod));
     else { const u = [...paymentMethods, newMethod]; setPaymentMethods(u); saveLocal('paymentMethods', u); }
   };
-  const handleUpdateMethod = async (id: string, name: string, type: PaymentMethod['type']) => {
+  const handleUpdateMethod = async (id: string, name: string, type: PaymentMethod['type'], isHiddenInSellerMode?: boolean) => {
     if (userRole !== 'ADMIN') return;
-    if (user) await updateDoc(doc(db, 'users', user.uid, 'paymentMethods', id), { name, type });
-    else { const u = paymentMethods.map(pm => pm.id === id ? { ...pm, name, type } : pm); setPaymentMethods(u); saveLocal('paymentMethods', u); }
+    if (user) await updateDoc(doc(db, 'users', user.uid, 'paymentMethods', id), { name, type, isHiddenInSellerMode });
+    else { const u = paymentMethods.map(pm => pm.id === id ? { ...pm, name, type, isHiddenInSellerMode } : pm); setPaymentMethods(u); saveLocal('paymentMethods', u); }
   };
   const handleDeleteMethod = async (id: string) => {
     if (userRole !== 'ADMIN') return;
@@ -670,10 +676,10 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (view) {
       case 'DASHBOARD': return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
-      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} combos={combos} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} />;
+      case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} combos={combos} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} userRole={userRole} />;
       case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} onAdjustDebt={handleAdjustCustomerDebt} />;
       case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
-      case 'COMBOS': return userRole === 'ADMIN' ? <Combos combos={combos} products={products} onAddCombo={handleAddCombo} onDeleteCombo={handleDeleteCombo} onToggleCombo={handleToggleCombo} /> : null;
+      case 'COMBOS': return userRole === 'ADMIN' ? <Combos combos={combos} products={products} onAddCombo={handleAddCombo} onUpdateCombo={handleUpdateCombo} onDeleteCombo={handleDeleteCombo} onToggleCombo={handleToggleCombo} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
