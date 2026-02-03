@@ -206,11 +206,13 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
     reader.readAsText(file);
   };
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.barcode && p.barcode.includes(searchTerm))
-  );
+  const filteredProducts = products.filter(p => {
+    const search = (searchTerm || "").toLowerCase();
+    const nameMatch = (p.name || "").toLowerCase().includes(search);
+    const catMatch = (p.category || "").toLowerCase().includes(search);
+    const barcodeMatch = p.barcode && p.barcode.includes(searchTerm);
+    return nameMatch || catMatch || barcodeMatch;
+  });
 
   const categories = Array.from(new Set(products.map(p => p.category)));
 
@@ -412,7 +414,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
         </div>
       )}
 
-      {/* Import Modal code remains same as previous... */}
+      {/* Import Modal */}
       {isImportModalOpen && !isReadOnly && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 relative animate-in fade-in zoom-in-95 duration-200">
@@ -430,7 +432,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, lowStockThreshold, onAd
         </div>
       )}
 
-      {/* Form Modal code remains same as previous... */}
+      {/* Form Modal */}
       {isModalOpen && !isReadOnly && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200">

@@ -19,11 +19,11 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, storeProfile }) => {
     return sales
       .sort((a, b) => b.timestamp - a.timestamp) // Newest first
       .filter(sale => {
-        const searchLower = searchTerm.toLowerCase();
-        const idMatch = sale.id.toLowerCase().includes(searchLower);
-        const clientMatch = sale.invoice?.clientName.toLowerCase().includes(searchLower) || false;
-        const methodMatch = sale.paymentMethodName.toLowerCase().includes(searchLower);
-        const amountMatch = sale.totalAmount.toString().includes(searchLower);
+        const searchLower = (searchTerm || "").toLowerCase();
+        const idMatch = (sale.id || "").toLowerCase().includes(searchLower);
+        const clientMatch = (sale.invoice?.clientName || "").toLowerCase().includes(searchLower);
+        const methodMatch = (sale.paymentMethodName || "").toLowerCase().includes(searchLower);
+        const amountMatch = (sale.totalAmount || 0).toString().includes(searchLower);
         
         return idMatch || clientMatch || methodMatch || amountMatch;
       });

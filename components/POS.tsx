@@ -116,10 +116,10 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   }, [products]);
 
   const filteredItems = useMemo(() => {
-    const lowerSearch = searchTerm.toLowerCase();
+    const lowerSearch = (searchTerm || "").toLowerCase();
     
     if (selectedCategory === 'COMBOS') {
-       return combos.filter(c => c.isActive && c.name.toLowerCase().includes(lowerSearch));
+       return combos.filter(c => c.isActive && (c.name || "").toLowerCase().includes(lowerSearch));
     }
 
     if (selectedCategory === 'FAVORITES' && !lowerSearch) {
@@ -127,7 +127,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
     }
 
     return products.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(lowerSearch) || 
+      const matchesSearch = (p.name || "").toLowerCase().includes(lowerSearch) || 
                             (p.barcode && p.barcode.toLowerCase().includes(lowerSearch));
       const matchesCategory = selectedCategory === 'ALL' || 
                               p.category === selectedCategory ||
@@ -325,7 +325,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
       console.error("Error processing sale:", error);
       alert("Hubo un error al procesar la venta. Intente nuevamente.");
     } finally {
-      setIsProcessing(false); // Unlock the button
+      setIsProcessing(false); // Lock the button
     }
   };
 
