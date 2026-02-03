@@ -16,7 +16,7 @@ import Auth from './components/Auth';
 import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement, Promotion, Combo } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc, increment } from 'firebase/firestore';
 import { Lock } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -320,26 +320,23 @@ const App: React.FC = () => {
              item.selectedProductIds.forEach(cid => {
                 const prodInDb = products.find(p => p.id === cid);
                 if (prodInDb) {
-                   batch.set(doc(db, 'users', user.uid, 'products', cid), { stock: (Number(prodInDb.stock) || 0) - item.quantity }, { merge: true });
+                   // Using numeric math here as products state might be slightly stale but acceptable for stock
+                   // For robust stock, we should use increment(-qty)
+                   batch.set(doc(db, 'users', user.uid, 'products', cid), { stock: increment(-item.quantity) }, { merge: true });
                 }
              });
           } else {
             const originalId = item.id.includes('-') && item.isVariablePrice ? item.id.split('-')[0] : item.id;
-            const productInDb = products.find(p => p.id === originalId);
-            if (productInDb) {
-               batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: (Number(productInDb.stock) || 0) - item.quantity }, { merge: true });
-            }
+             batch.set(doc(db, 'users', user.uid, 'products', originalId), { stock: increment(-item.quantity) }, { merge: true });
           }
         });
 
         if (!isCredit) {
            payments.forEach(p => {
-             const method = paymentMethods.find(m => m.id === p.methodId);
-             if (method) batch.set(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: (Number(method.balance)||0) + p.amount }, { merge: true });
+             batch.set(doc(db, 'users', user.uid, 'paymentMethods', p.methodId), { balance: increment(p.amount) }, { merge: true });
            });
         } else if (customerId) {
-           const customer = customers.find(c => c.id === customerId);
-           if (customer) batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: (Number(customer.balance)||0) + totalAmount, lastPurchaseDate: Date.now() }, { merge: true });
+           batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: increment(totalAmount), lastPurchaseDate: Date.now() }, { merge: true });
         }
 
         await batch.commit();
@@ -407,13 +404,23 @@ const App: React.FC = () => {
     if (user) {
       const batch = writeBatch(db);
       batch.set(doc(db, 'users', user.uid, 'sales', paymentRecord.id), sanitizeForFirestore(paymentRecord));
-      batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: Math.max(0, customer.balance - amount) }, { merge: true });
-      batch.set(doc(db, 'users', user.uid, 'paymentMethods', methodId), { balance: method.balance + amount }, { merge: true });
+      // Use increment for atomic updates
+      batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: increment(-amount) }, { merge: true });
+      batch.set(doc(db, 'users', user.uid, 'paymentMethods', methodId), { balance: increment(amount) }, { merge: true });
       await batch.commit();
     } else {
       const uSales = [...sales, paymentRecord]; setSales(uSales); saveLocal('sales', uSales);
-      const uCustomers = customers.map(c => c.id === customerId ? { ...c, balance: Math.max(0, c.balance - amount) } : c); setCustomers(uCustomers); saveLocal('customers', uCustomers);
-      const uMethods = paymentMethods.map(m => m.id === methodId ? { ...m, balance: m.balance + amount } : m); setPaymentMethods(uMethods); saveLocal('paymentMethods', uMethods);
+      // Functional updates for safe local state
+      setCustomers(prev => {
+        const u = prev.map(c => c.id === customerId ? { ...c, balance: Math.max(0, c.balance - amount) } : c);
+        saveLocal('customers', u);
+        return u;
+      });
+      setPaymentMethods(prev => {
+        const u = prev.map(m => m.id === methodId ? { ...m, balance: m.balance + amount } : m);
+        saveLocal('paymentMethods', u);
+        return u;
+      });
     }
   };
 
@@ -421,6 +428,7 @@ const App: React.FC = () => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer || amount <= 0) return;
 
+    // Local calc for state update preview, but Firebase uses increment
     const newBalance = type === 'INCREASE' 
        ? customer.balance + amount 
        : Math.max(0, customer.balance - amount);
@@ -447,11 +455,18 @@ const App: React.FC = () => {
     if (user) {
       const batch = writeBatch(db);
       batch.set(doc(db, 'users', user.uid, 'sales', transactionRecord.id), sanitizeForFirestore(transactionRecord));
-      batch.set(doc(db, 'users', user.uid, 'customers', customerId), { balance: newBalance, lastPurchaseDate: Date.now() }, { merge: true });
+      batch.set(doc(db, 'users', user.uid, 'customers', customerId), { 
+          balance: increment(type === 'INCREASE' ? amount : -amount), 
+          lastPurchaseDate: Date.now() 
+      }, { merge: true });
       await batch.commit();
     } else {
       const uSales = [...sales, transactionRecord]; setSales(uSales); saveLocal('sales', uSales);
-      const uCustomers = customers.map(c => c.id === customerId ? { ...c, balance: newBalance, lastPurchaseDate: Date.now() } : c); setCustomers(uCustomers); saveLocal('customers', uCustomers);
+      setCustomers(prev => {
+        const u = prev.map(c => c.id === customerId ? { ...c, balance: newBalance, lastPurchaseDate: Date.now() } : c);
+        saveLocal('customers', u);
+        return u;
+      });
     }
   };
 
@@ -478,18 +493,25 @@ const App: React.FC = () => {
     if (user) {
       const batch = writeBatch(db);
       batch.set(doc(db, 'users', user.uid, 'cashMovements', movement.id), sanitizeForFirestore(movement));
-      const newBalance = type === 'INCOME' ? method.balance + amount : method.balance - amount;
-      batch.set(doc(db, 'users', user.uid, 'paymentMethods', methodId), { balance: newBalance }, { merge: true });
+      const change = type === 'INCOME' ? amount : -amount;
+      batch.set(doc(db, 'users', user.uid, 'paymentMethods', methodId), { balance: increment(change) }, { merge: true });
       await batch.commit();
     } else {
-      const uMovements = [...cashMovements, movement]; setCashMovements(uMovements); saveLocal('cashMovements', uMovements);
-      const uMethods = paymentMethods.map(m => {
-        if (m.id === methodId) {
-           return { ...m, balance: type === 'INCOME' ? m.balance + amount : m.balance - amount };
-        }
-        return m;
+      setCashMovements(prev => {
+        const u = [...prev, movement];
+        saveLocal('cashMovements', u);
+        return u;
       });
-      setPaymentMethods(uMethods); saveLocal('paymentMethods', uMethods);
+      setPaymentMethods(prev => {
+        const u = prev.map(m => {
+          if (m.id === methodId) {
+             return { ...m, balance: type === 'INCOME' ? m.balance + amount : m.balance - amount };
+          }
+          return m;
+        });
+        saveLocal('paymentMethods', u);
+        return u;
+      });
     }
   };
 
@@ -518,17 +540,24 @@ const App: React.FC = () => {
     if (user) {
       const b = writeBatch(db);
       b.set(doc(db, 'users', user.uid, 'transfers', t.id), sanitizeForFirestore(t));
-      b.set(doc(db, 'users', user.uid, 'paymentMethods', fromId), { balance: from.balance - amount }, { merge: true });
-      b.set(doc(db, 'users', user.uid, 'paymentMethods', toId), { balance: to.balance + amount }, { merge: true });
+      b.set(doc(db, 'users', user.uid, 'paymentMethods', fromId), { balance: increment(-amount) }, { merge: true });
+      b.set(doc(db, 'users', user.uid, 'paymentMethods', toId), { balance: increment(amount) }, { merge: true });
       await b.commit();
     } else {
-      const um = paymentMethods.map(m => {
-        if (m.id === fromId) return { ...m, balance: m.balance - amount };
-        if (m.id === toId) return { ...m, balance: m.balance + amount };
-        return m;
+      setPaymentMethods(prev => {
+        const um = prev.map(m => {
+            if (m.id === fromId) return { ...m, balance: m.balance - amount };
+            if (m.id === toId) return { ...m, balance: m.balance + amount };
+            return m;
+        });
+        saveLocal('paymentMethods', um);
+        return um;
       });
-      setPaymentMethods(um); saveLocal('paymentMethods', um);
-      const ut = [...transfers, t]; setTransfers(ut); saveLocal('transfers', ut);
+      setTransfers(prev => {
+        const ut = [...prev, t];
+        saveLocal('transfers', ut);
+        return ut;
+      });
     }
   };
   const handleAddSupplier = async (supplierData: Omit<Supplier, 'id' | 'balance'>) => {
@@ -542,20 +571,42 @@ const App: React.FC = () => {
     const e = { id: uuidv4(), supplierId, amount, date: Date.now(), description, type };
     const sup = suppliers.find(s => s.id === supplierId);
     if (!sup) return;
+    
     if (user) {
       const b = writeBatch(db);
       b.set(doc(db, 'users', user.uid, 'expenses', e.id), sanitizeForFirestore(e));
-      b.set(doc(db, 'users', user.uid, 'suppliers', supplierId), { balance: sup.balance + (type === 'PURCHASE' ? amount : -amount) }, { merge: true });
+      // Use increment to prevent race conditions when this function is called rapidly (e.g. Purchase then Pay)
+      b.set(doc(db, 'users', user.uid, 'suppliers', supplierId), { 
+        balance: increment(type === 'PURCHASE' ? amount : -amount) 
+      }, { merge: true });
+      
       if (type === 'PAYMENT' && paymentMethodId) {
-         const m = paymentMethods.find(m => m.id === paymentMethodId);
-         if (m) b.set(doc(db, 'users', user.uid, 'paymentMethods', paymentMethodId), { balance: m.balance - amount }, { merge: true });
+         // Also update payment method balance securely
+         b.set(doc(db, 'users', user.uid, 'paymentMethods', paymentMethodId), { 
+            balance: increment(-amount) 
+         }, { merge: true });
       }
       await b.commit();
     } else {
-      const ue = [...expenses, e]; setExpenses(ue); saveLocal('expenses', ue);
-      const us = suppliers.map(s => s.id === supplierId ? { ...s, balance: s.balance + (type === 'PURCHASE' ? amount : -amount) } : s); setSuppliers(us); saveLocal('suppliers', us);
+      // Functional state updates to prevent race conditions in local state
+      setExpenses(prev => {
+        const ue = [...prev, e];
+        saveLocal('expenses', ue);
+        return ue;
+      });
+      
+      setSuppliers(prev => {
+        const us = prev.map(s => s.id === supplierId ? { ...s, balance: s.balance + (type === 'PURCHASE' ? amount : -amount) } : s);
+        saveLocal('suppliers', us);
+        return us;
+      });
+
       if (type === 'PAYMENT' && paymentMethodId) {
-        const um = paymentMethods.map(m => m.id === paymentMethodId ? { ...m, balance: m.balance - amount } : m); setPaymentMethods(um); saveLocal('paymentMethods', um);
+        setPaymentMethods(prev => {
+            const um = prev.map(m => m.id === paymentMethodId ? { ...m, balance: m.balance - amount } : m);
+            saveLocal('paymentMethods', um);
+            return um;
+        });
       }
     }
   };
