@@ -587,6 +587,20 @@ const App: React.FC = () => {
       }, { merge: true });
       
       if (type === 'PAYMENT' && paymentMethodId) {
+         // Create CashMovement for ledger visibility
+         const methodName = paymentMethods.find(pm => pm.id === paymentMethodId)?.name || 'Caja';
+         const movement: CashMovement = {
+            id: uuidv4(),
+            timestamp: Date.now(),
+            type: 'EXPENSE',
+            amount: amount,
+            description: `Pago a Proveedor (${sup.name}): ${description}`,
+            methodId: paymentMethodId,
+            methodName: methodName,
+            userId: user.uid
+         };
+         b.set(doc(db, 'users', user.uid, 'cashMovements', movement.id), sanitizeForFirestore(movement));
+
          // Also update payment method balance securely
          b.set(doc(db, 'users', user.uid, 'paymentMethods', paymentMethodId), { 
             balance: increment(-amount) 
@@ -608,6 +622,24 @@ const App: React.FC = () => {
       });
 
       if (type === 'PAYMENT' && paymentMethodId) {
+        // Handle local CashMovement
+        const methodName = paymentMethods.find(pm => pm.id === paymentMethodId)?.name || 'Caja';
+        const movement: CashMovement = {
+            id: uuidv4(),
+            timestamp: Date.now(),
+            type: 'EXPENSE',
+            amount: amount,
+            description: `Pago a Proveedor (${sup.name}): ${description}`,
+            methodId: paymentMethodId,
+            methodName: methodName,
+            userId: 'guest'
+        };
+        setCashMovements(prev => {
+            const um = [...prev, movement];
+            saveLocal('cashMovements', um);
+            return um;
+        });
+
         setPaymentMethods(prev => {
             const um = prev.map(m => m.id === paymentMethodId ? { ...m, balance: m.balance - amount } : m);
             saveLocal('paymentMethods', um);
