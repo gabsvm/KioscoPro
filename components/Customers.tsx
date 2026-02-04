@@ -37,7 +37,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, sales, paymentMethods,
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => 
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (c.name || "").toLowerCase().includes((searchTerm || "").toLowerCase()) || 
       (c.dni && c.dni.includes(searchTerm))
     );
   }, [customers, searchTerm]);

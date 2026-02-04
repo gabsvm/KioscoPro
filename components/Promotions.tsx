@@ -54,13 +54,13 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
   // Filter existing promotions by promo name OR product name
   const filteredPromotions = promotions.filter(p => {
     const product = products.find(prod => prod.id === p.productId);
-    const term = searchTerm.toLowerCase();
-    return p.name.toLowerCase().includes(term) || (product && product.name.toLowerCase().includes(term));
+    const term = (searchTerm || "").toLowerCase();
+    return (p.name || "").toLowerCase().includes(term) || (product && (product.name || "").toLowerCase().includes(term));
   });
 
   // Filter products in the modal dropdown
   const filteredProductsForSelect = products.filter(p => 
-    p.name.toLowerCase().includes(productSearch.toLowerCase())
+    (p.name || "").toLowerCase().includes((productSearch || "").toLowerCase())
   );
 
   return (

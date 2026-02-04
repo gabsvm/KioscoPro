@@ -109,7 +109,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onUpdateC
      setParts(n);
   };
 
-  const filteredCombos = combos.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredCombos = combos.filter(c => (c.name || "").toLowerCase().includes((searchTerm || "").toLowerCase()));
 
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col gap-6">
@@ -254,7 +254,7 @@ const Combos: React.FC<CombosProps> = ({ combos, products, onAddCombo, onUpdateC
                              </div>
                              
                              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1 custom-scrollbar">
-                                {products.filter(p => !productSearch || activePartIndex !== pIdx || p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                                {products.filter(p => !productSearch || activePartIndex !== pIdx || (p.name || "").toLowerCase().includes((productSearch || "").toLowerCase())).map(p => (
                                    <button 
                                       key={p.id}
                                       onClick={() => toggleProductInPart(pIdx, p.id)}

@@ -64,7 +64,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
   // Invoice Logic
   const filteredProducts = useMemo(() => {
     if (!productSearch) return [];
-    return products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
+    return products.filter(p => (p.name || "").toLowerCase().includes((productSearch || "").toLowerCase()));
   }, [products, productSearch]);
 
   const addToInvoice = (product: Product) => {
