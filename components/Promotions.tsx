@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Tag, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
+import { Tag, Plus, Trash2, Search, X, Package, ArrowRight, ToggleLeft, ToggleRight, AlertCircle, Pencil } from 'lucide-react';
 import { Promotion, Product } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -8,12 +8,14 @@ interface PromotionsProps {
   promotions: Promotion[];
   products: Product[];
   onAddPromotion: (p: Omit<Promotion, 'id'>) => void;
+  onUpdatePromotion: (p: Promotion) => void;
   onDeletePromotion: (id: string) => void;
   onTogglePromotion: (id: string, isActive: boolean) => void;
 }
 
-const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddPromotion, onDeletePromotion, onTogglePromotion }) => {
+const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddPromotion, onUpdatePromotion, onDeletePromotion, onTogglePromotion }) => {
   const [showModal, setShowModal] = useState(false);
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Form State
@@ -25,23 +27,45 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
   // Product Selector Search
   const [productSearch, setProductSearch] = useState('');
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductId) return;
 
-    onAddPromotion({
-      name: promoName,
-      productId: selectedProductId,
-      triggerQuantity: parseInt(triggerQty),
-      promotionalPrice: parseFloat(promoPrice),
-      isActive: true
-    });
+    if (editingPromoId) {
+      onUpdatePromotion({
+        id: editingPromoId,
+        name: promoName,
+        productId: selectedProductId,
+        triggerQuantity: parseInt(triggerQty),
+        promotionalPrice: parseFloat(promoPrice),
+        isActive: promotions.find(p => p.id === editingPromoId)?.isActive ?? true
+      });
+    } else {
+      onAddPromotion({
+        name: promoName,
+        productId: selectedProductId,
+        triggerQuantity: parseInt(triggerQty),
+        promotionalPrice: parseFloat(promoPrice),
+        isActive: true
+      });
+    }
 
     setShowModal(false);
     resetForm();
   };
 
+  const handleEdit = (promo: Promotion) => {
+    setEditingPromoId(promo.id);
+    setPromoName(promo.name);
+    setSelectedProductId(promo.productId);
+    setTriggerQty(promo.triggerQuantity.toString());
+    setPromoPrice(promo.promotionalPrice.toString());
+    setProductSearch('');
+    setShowModal(true);
+  };
+
   const resetForm = () => {
+    setEditingPromoId(null);
     setPromoName('');
     setSelectedProductId('');
     setTriggerQty('');
@@ -106,12 +130,20 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                         <Tag size={20} />
                      </div>
-                     <button 
-                       onClick={() => onDeletePromotion(promo.id)}
-                       className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                     >
-                       <Trash2 size={18} />
-                     </button>
+                     <div className="flex gap-1">
+                        <button 
+                          onClick={() => handleEdit(promo)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button 
+                          onClick={() => onDeletePromotion(promo.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                     </div>
                   </div>
 
                   <div>
@@ -161,11 +193,11 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm px-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-slate-800">Nueva Promoción</h3>
+                  <h3 className="text-xl font-bold text-slate-800">{editingPromoId ? 'Editar Promoción' : 'Nueva Promoción'}</h3>
                   <button onClick={() => setShowModal(false)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
                </div>
                
-               <form onSubmit={handleAdd} className="space-y-4">
+               <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                      <label className="text-xs font-bold text-slate-500 uppercase">Nombre de la Promo</label>
                      <input 
@@ -248,7 +280,9 @@ const Promotions: React.FC<PromotionsProps> = ({ promotions, products, onAddProm
 
                   <div className="pt-4 flex gap-3">
                      <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 text-slate-600 font-bold hover:bg-slate-50 rounded-lg">Cancelar</button>
-                     <button type="submit" className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg">Crear Promo</button>
+                     <button type="submit" className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg">
+                        {editingPromoId ? 'Guardar Cambios' : 'Crear Promo'}
+                     </button>
                   </div>
                </form>
             </div>

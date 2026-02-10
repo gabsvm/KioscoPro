@@ -236,6 +236,12 @@ const App: React.FC = () => {
     else { const u = [...promotions, promo]; setPromotions(u); saveLocal('promotions', u); }
   };
 
+  const handleUpdatePromotion = async (updatedPromo: Promotion) => {
+    if (userRole !== 'ADMIN') return;
+    if (user) await setDoc(doc(db, 'users', user.uid, 'promotions', updatedPromo.id), sanitizeForFirestore(updatedPromo));
+    else { const u = promotions.map(p => p.id === updatedPromo.id ? updatedPromo : p); setPromotions(u); saveLocal('promotions', u); }
+  };
+
   const handleDeletePromotion = async (id: string) => {
     if (userRole !== 'ADMIN') return;
     if (user) await deleteDoc(doc(db, 'users', user.uid, 'promotions', id));
@@ -710,7 +716,7 @@ const App: React.FC = () => {
       case 'DASHBOARD': return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
       case 'POS': return <POS products={products} paymentMethods={paymentMethods} customers={customers} promotions={promotions} combos={combos} onCompleteSale={handleCompleteSale} storeProfile={storeProfile} userRole={userRole} />;
       case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} onAdjustDebt={handleAdjustCustomerDebt} />;
-      case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
+      case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onUpdatePromotion={handleUpdatePromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
       case 'COMBOS': return userRole === 'ADMIN' ? <Combos combos={combos} products={products} onAddCombo={handleAddCombo} onUpdateCombo={handleUpdateCombo} onDeleteCombo={handleDeleteCombo} onToggleCombo={handleToggleCombo} /> : null;
       case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;

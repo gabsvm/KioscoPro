@@ -16,10 +16,10 @@ interface SuppliersProps {
 
 interface InvoiceItem {
   product: Product;
-  newCost: number;
-  margin: number;
-  newPrice: number;
-  quantity: number;
+  newCost: number | string; // Allow string for better input handling
+  margin: number | string;
+  newPrice: number | string;
+  quantity: number | string;
 }
 
 const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMethods, products, onAddSupplier, onAddExpense, onBulkUpdateProducts }) => {
@@ -91,24 +91,31 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
     setShowProductResults(false);
   };
 
-  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: number) => {
+  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: string) => {
     setInvoiceItems(prev => {
       const newItems = [...prev];
       const item = { ...newItems[index] };
       
+      // Update string value directly for better UX
+      (item as any)[field] = value;
+
+      const numValue = parseFloat(value) || 0;
+
       if (field === 'newCost' || field === 'margin') {
-         item[field] = value;
+         let cost = field === 'newCost' ? numValue : (parseFloat(item.newCost.toString()) || 0);
+         let margin = field === 'margin' ? numValue : (parseFloat(item.margin.toString()) || 0);
+         
          // Recalculate price with smart rounding
-         const rawPrice = item.newCost * (1 + (item.margin / 100));
+         const rawPrice = cost * (1 + (margin / 100));
          item.newPrice = smartRound(rawPrice);
       } else if (field === 'newPrice') {
-         item.newPrice = value;
+         const price = numValue;
+         const cost = parseFloat(item.newCost.toString()) || 0;
          // Recalculate margin (reverse)
-         if (item.newCost > 0) {
-            item.margin = ((value - item.newCost) / item.newCost) * 100;
+         if (cost > 0) {
+            const marginVal = ((price - cost) / cost) * 100;
+            item.margin = parseFloat(marginVal.toFixed(1)); // Keep it clean
          }
-      } else {
-         (item as any)[field] = value;
       }
       
       newItems[index] = item;
@@ -121,7 +128,11 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
   };
 
   const invoiceTotal = useMemo(() => {
-    const itemsTotal = invoiceItems.reduce((acc, item) => acc + (item.newCost * item.quantity), 0);
+    const itemsTotal = invoiceItems.reduce((acc, item) => {
+       const cost = parseFloat(item.newCost.toString()) || 0;
+       const qty = parseFloat(item.quantity.toString()) || 0;
+       return acc + (cost * qty);
+    }, 0);
     const extra = parseFloat(invoiceExtraCharge) || 0;
     return itemsTotal + extra;
   }, [invoiceItems, invoiceExtraCharge]);
@@ -141,9 +152,9 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
     // 1. Prepare products to update
     const productsToUpdate: Product[] = invoiceItems.map(item => ({
       ...item.product,
-      costPrice: item.newCost,
-      sellingPrice: item.newPrice,
-      stock: item.product.stock + item.quantity
+      costPrice: parseFloat(item.newCost.toString()) || 0,
+      sellingPrice: parseFloat(item.newPrice.toString()) || 0,
+      stock: item.product.stock + (parseFloat(item.quantity.toString()) || 0)
     }));
 
     // 2. Call bulk update
@@ -445,7 +456,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                                    <input 
                                      type="number" min="0" step="0.01"
                                      value={item.newCost}
-                                     onChange={e => updateInvoiceItem(idx, 'newCost', parseFloat(e.target.value) || 0)}
+                                     onChange={e => updateInvoiceItem(idx, 'newCost', e.target.value)}
                                      className="w-full border rounded p-1 text-center"
                                    />
                                 </td>
@@ -453,7 +464,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                                    <input 
                                      type="number" min="0"
                                      value={item.margin}
-                                     onChange={e => updateInvoiceItem(idx, 'margin', parseFloat(e.target.value) || 0)}
+                                     onChange={e => updateInvoiceItem(idx, 'margin', e.target.value)}
                                      className="w-full border rounded p-1 text-center bg-indigo-50 text-indigo-700 font-bold"
                                    />
                                 </td>
@@ -462,7 +473,7 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                                       <input 
                                         type="number" min="0"
                                         value={item.newPrice}
-                                        onChange={e => updateInvoiceItem(idx, 'newPrice', parseFloat(e.target.value) || 0)}
+                                        onChange={e => updateInvoiceItem(idx, 'newPrice', e.target.value)}
                                         className="w-full border rounded p-1 text-center font-bold text-emerald-600"
                                       />
                                    </div>
@@ -472,12 +483,12 @@ const Suppliers: React.FC<SuppliersProps> = ({ suppliers, expenses, paymentMetho
                                    <input 
                                      type="number" min="1"
                                      value={item.quantity}
-                                     onChange={e => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                     onChange={e => updateInvoiceItem(idx, 'quantity', e.target.value)}
                                      className="w-full border rounded p-1 text-center bg-orange-50 font-bold"
                                    />
                                 </td>
                                 <td className="px-4 py-2 text-right font-bold text-slate-700">
-                                   {formatCurrency(item.newCost * item.quantity)}
+                                   {formatCurrency((parseFloat(item.newCost.toString()) || 0) * (parseFloat(item.quantity.toString()) || 0))}
                                 </td>
                                 <td className="px-2 py-2 text-center">
                                    <button onClick={() => removeInvoiceItem(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
