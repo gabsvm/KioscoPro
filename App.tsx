@@ -608,8 +608,9 @@ const App: React.FC = () => {
          b.set(doc(db, 'users', user.uid, 'cashMovements', movement.id), sanitizeForFirestore(movement));
 
          // Also update payment method balance securely
+         // FIX: Use Math.abs(amount) to ensure we always SUBTRACT from balance when paying
          b.set(doc(db, 'users', user.uid, 'paymentMethods', paymentMethodId), { 
-            balance: increment(-amount) 
+            balance: increment(-Math.abs(amount)) 
          }, { merge: true });
       }
       await b.commit();
@@ -647,7 +648,8 @@ const App: React.FC = () => {
         });
 
         setPaymentMethods(prev => {
-            const um = prev.map(m => m.id === paymentMethodId ? { ...m, balance: m.balance - amount } : m);
+            // FIX: Use Math.abs(amount) to ensure we always SUBTRACT from balance when paying
+            const um = prev.map(m => m.id === paymentMethodId ? { ...m, balance: m.balance - Math.abs(amount) } : m);
             saveLocal('paymentMethods', um);
             return um;
         });
