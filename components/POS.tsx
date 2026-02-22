@@ -367,15 +367,17 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                     <div 
                       key={item.id}
                       onClick={() => addComboToCart(item as Combo)}
-                      className="bg-indigo-600 p-3 md:p-4 rounded-xl border border-indigo-700 shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group"
+                      className="bg-indigo-600 p-3 md:p-4 rounded-xl border border-indigo-700 shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-95 flex flex-col h-32 md:h-36 relative group"
                     >
                       <div className="absolute top-2 right-2 text-indigo-200"><Layers size={14} /></div>
-                      <div className="mt-4">
-                        <h4 className="font-bold text-sm md:text-base text-white line-clamp-2 leading-tight">{item.name}</h4>
-                        <p className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Combo Especial</p>
-                      </div>
-                      <div className="text-right">
-                         <span className="font-black text-base md:text-lg text-white">{formatCurrency(item.price)}</span>
+                      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                        <div className="mt-4">
+                          <h4 className="font-bold text-sm md:text-base text-white line-clamp-2 leading-tight">{item.name}</h4>
+                          <p className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Combo Especial</p>
+                        </div>
+                        <div className="text-right mt-auto">
+                           <span className="font-black text-base md:text-lg text-white">{formatCurrency(item.price)}</span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -393,7 +395,6 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                     {hasPromo && <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"><Tag size={10} /> PROMO</div>}
                     {product.barcode && <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>}
 
-                    {/* This wrapper is the key. It allows the flex container to shrink below its content size. */}
                     <div className="flex flex-col flex-1 overflow-hidden min-h-0">
                         {/* Top Section (Name & Category) - mt-4 to clear the absolute icons */}
                         <div className="mt-4">
