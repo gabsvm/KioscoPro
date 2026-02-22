@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
+import lineClamp from '@tailwindcss/line-clamp';
 
 // All configuration is now in this single file
 export default defineConfig({
@@ -27,7 +28,7 @@ export default defineConfig({
               }
             },
           },
-          plugins: [require('@tailwindcss/line-clamp')],
+          plugins: [lineClamp],
         }),
         autoprefixer,
       ],
