@@ -367,15 +367,15 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                     <div 
                       key={item.id}
                       onClick={() => addComboToCart(item as Combo)}
-                      className="bg-indigo-600 p-3 md:p-4 rounded-xl border border-indigo-700 shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-95 flex flex-col h-32 md:h-36 relative group"
+                      className="bg-indigo-600 p-3 md:p-4 rounded-xl border border-indigo-700 shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-95 flex flex-col h-full min-h-[130px] relative group"
                     >
                       <div className="absolute top-2 right-2 text-indigo-200"><Layers size={14} /></div>
-                      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
-                        <div className="mt-4">
+                      <div className="flex flex-col flex-1 mt-4">
+                        <div>
                           <h4 className="font-bold text-sm md:text-base text-white line-clamp-2 leading-tight">{item.name}</h4>
                           <p className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Combo Especial</p>
                         </div>
-                        <div className="text-right mt-auto">
+                        <div className="text-right mt-auto pt-2">
                            <span className="font-black text-base md:text-lg text-white">{formatCurrency(item.price)}</span>
                         </div>
                       </div>
@@ -388,22 +388,22 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   <div 
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col h-32 md:h-36 relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}>
+                    className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col h-full min-h-[130px] relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}>
 
                     {/* Icons are absolutely positioned and do not affect the layout flow */}
                     {product.isFavorite && <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor"/></div>}
                     {hasPromo && <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"><Tag size={10} /> PROMO</div>}
                     {product.barcode && <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>}
 
-                    <div className="flex flex-col flex-1 overflow-hidden min-h-0">
-                        {/* Top Section (Name & Category) - mt-4 to clear the absolute icons */}
-                        <div className="mt-4">
+                    <div className="flex flex-col flex-1 mt-5">
+                        {/* Top Section (Name & Category) */}
+                        <div>
                           <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
                           <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
                         </div>
 
                         {/* Bottom Section (Stock & Price) - Pushed to the bottom of the wrapper */}
-                        <div className="flex justify-between items-baseline mt-auto">
+                        <div className="flex justify-between items-end mt-auto pt-3">
                            <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {product.stock}</span>
                            <span className="font-bold text-base md:text-lg text-brand-600">{product.isVariablePrice ? '$-.--' : formatCurrency(product.sellingPrice)}</span>
                         </div>
