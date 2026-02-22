@@ -67,7 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
       <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-6`}>
         {/* Sales Today - Visible to everyone */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-slate-500">Ventas Hoy</p>
               <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyRevenue)}</h3>
@@ -83,7 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
         {isAdmin && (
           <>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Ganancia Hoy</p>
                   <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyProfit)}</h3>
@@ -96,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Valor Inventario</p>
                   <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(totalStockValue)}</h3>
@@ -109,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Productos</p>
                   <h3 className="text-2xl font-bold text-slate-800 mt-2">{products.length}</h3>
@@ -122,7 +122,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-slate-500">Saldo Cajas</p>
                   <h3 className="text-2xl font-bold text-slate-800 mt-2">

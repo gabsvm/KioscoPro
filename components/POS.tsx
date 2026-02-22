@@ -386,14 +386,15 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   <div 
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}
-                  >
-                    {product.isFavorite && <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor"/></div>}
-                    {hasPromo && <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"><Tag size={10} /> PROMO</div>}
-                    {product.barcode && <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>}
-                    <div className="mt-4">
-                      <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
-                      <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+                    className={`bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col justify-between h-32 md:h-36 relative group ${product.isFavorite ? 'ring-1 ring-yellow-100' : ''}`}>
+                    <div className="flex-1">
+                      {product.isFavorite && <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor"/></div>}
+                      {hasPromo && <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"><Tag size={10} /> PROMO</div>}
+                      {product.barcode && <div className="absolute top-2 right-2 opacity-50 text-[10px] bg-slate-100 px-1 rounded flex items-center"><Barcode size={10} className="mr-0.5"/></div>}
+                      <div className="mt-4">
+                        <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
+                        <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+                      </div>
                     </div>
                     <div className="flex justify-between items-end mt-2">
                        <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {product.stock}</span>
