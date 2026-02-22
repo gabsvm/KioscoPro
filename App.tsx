@@ -172,7 +172,7 @@ const App: React.FC = () => {
   const saveLocal = (key: string, data: any) => {
     if (!user) {
       try {
-        window.localStorage.setItem(key, JSON.stringify(data));
+        window.localStorage.setItem(key, JSON.stringify(sanitizeForFirestore(data)));
       } catch (e) {
         console.error("Error saving to local storage", e);
       }
