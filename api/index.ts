@@ -45,7 +45,7 @@ const app = express();
 app.use(express.json());
 
 // API routes
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
