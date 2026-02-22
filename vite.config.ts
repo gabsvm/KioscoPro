@@ -27,7 +27,7 @@ export default defineConfig({
               }
             },
           },
-          plugins: [],
+          plugins: [require('@tailwindcss/line-clamp')],
         }),
         autoprefixer,
       ],

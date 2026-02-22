@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "*",
+    "@tailwindcss/line-clamp": "^0.4.4",
     "express": "^5.2.1",
     "firebase": "^10.8.1",
     "firebase-admin": "^13.6.1",
