@@ -147,6 +147,13 @@ export interface Expense {
   type: 'PURCHASE' | 'PAYMENT';
 }
 
+export interface AfipConfig {
+  cuit: string;
+  cert: string; // Certificate content
+  privateKey: string; // Private key content
+  environment: 'testing' | 'production';
+}
+
 export interface StoreProfile {
   name: string;
   owner: string;
@@ -158,6 +165,7 @@ export interface StoreProfile {
   ivaCondition: string;
   sellerPin?: string;
   logoUrl?: string; 
+  afipConfig?: AfipConfig;
 }
 
 export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS' | 'COMBOS';

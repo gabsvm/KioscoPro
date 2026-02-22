@@ -269,6 +269,70 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
             </select>
           </div>
 
+          <div className="col-span-full mt-4">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Credenciales Fiscales (AFIP)</h3>
+          </div>
+
+          <div className="col-span-full bg-sky-50 border border-sky-100 rounded-lg p-4 flex gap-3">
+             <ShieldAlert className="text-sky-500 shrink-0" size={24} />
+             <div>
+                <h4 className="font-bold text-sky-800 text-sm">Configuración para Facturación Electrónica</h4>
+                <p className="text-xs text-sky-700 mt-1">
+                  Ingresa tus credenciales de AFIP para poder emitir facturas fiscales. Estos datos se guardan de forma segura y son específicos para tu cuenta.
+                  El CUIT aquí debe coincidir con el CUIT del titular.
+                </p>
+             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CUIT (del Certificado)</label>
+            <input 
+              type="text" 
+              name="afipConfig.cuit"
+              value={formData.afipConfig?.cuit || ''}
+              onChange={(e) => setFormData(prev => ({...prev, afipConfig: {...prev.afipConfig, cuit: e.target.value}} as StoreProfile))}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="CUIT asociado al certificado digital"
+            />
+          </div>
+
+           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Entorno AFIP</label>
+            <select 
+              name="afipConfig.environment"
+              value={formData.afipConfig?.environment || 'testing'}
+              onChange={(e) => setFormData(prev => ({...prev, afipConfig: {...prev.afipConfig, environment: e.target.value}} as StoreProfile))}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+            >
+              <option value="testing">Pruebas (Homologación)</option>
+              <option value="production">Producción (Real)</option>
+            </select>
+          </div>
+
+          <div className="col-span-full">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Certificado (.crt)</label>
+            <textarea 
+              name="afipConfig.cert"
+              rows={5}
+              value={formData.afipConfig?.cert || ''}
+              onChange={(e) => setFormData(prev => ({...prev, afipConfig: {...prev.afipConfig, cert: e.target.value}} as StoreProfile))}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-mono text-xs"
+              placeholder="Pega el contenido completo de tu archivo .crt aquí"
+            />
+          </div>
+
+          <div className="col-span-full">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Clave Privada (.key)</label>
+            <textarea 
+              name="afipConfig.privateKey"
+              rows={5}
+              value={formData.afipConfig?.privateKey || ''}
+              onChange={(e) => setFormData(prev => ({...prev, afipConfig: {...prev.afipConfig, privateKey: e.target.value}} as StoreProfile))}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-mono text-xs"
+              placeholder="Pega el contenido completo de tu archivo .key aquí"
+            />
+          </div>
+
         </div>
 
         <div className="bg-slate-50 px-6 py-4 flex items-center justify-end border-t border-slate-200">

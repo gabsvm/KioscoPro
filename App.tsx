@@ -691,7 +691,43 @@ const App: React.FC = () => {
       alert("Error al sincronizar datos.");
     }
   };
-  
+
+  const handleGenerateAfipInvoice = async (sale: Sale) => {
+    if (userRole !== 'ADMIN') {
+      alert('Solo los administradores pueden generar facturas fiscales.');
+      return;
+    }
+
+    try {
+      if (!user) {
+        alert('Debes iniciar sesión para generar una factura fiscal.');
+        return;
+      }
+      const token = await user.getIdToken();
+
+      const response = await fetch('/api/afip/generate-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ saleData: sanitizeForFirestore(sale) }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`Factura para la venta ${sale.id.slice(0, 8)} enviada a AFIP. ID: ${result.invoiceId}`);
+        // Here you might want to update the sale status in Firestore
+      } else {
+        throw new Error(result.message || 'Error desconocido del servidor.');
+      }
+    } catch (error) {
+      console.error('Error al generar factura AFIP:', error);
+      alert(`No se pudo generar la factura AFIP: ${(error as Error).message}`);
+    }
+  };
+
   const handleLogout = () => signOut(auth).then(() => { 
     setIsGuestMode(false); 
   });
@@ -720,7 +756,7 @@ const App: React.FC = () => {
       case 'CUSTOMERS': return <Customers customers={customers} sales={sales} paymentMethods={paymentMethods} onAddCustomer={handleAddCustomer} onCustomerPayment={handleCustomerPayment} onAdjustDebt={handleAdjustCustomerDebt} />;
       case 'PROMOTIONS': return userRole === 'ADMIN' ? <Promotions promotions={promotions} products={products} onAddPromotion={handleAddPromotion} onUpdatePromotion={handleUpdatePromotion} onDeletePromotion={handleDeletePromotion} onTogglePromotion={handleTogglePromotion} /> : null;
       case 'COMBOS': return userRole === 'ADMIN' ? <Combos combos={combos} products={products} onAddCombo={handleAddCombo} onUpdateCombo={handleUpdateCombo} onDeleteCombo={handleDeleteCombo} onToggleCombo={handleToggleCombo} /> : null;
-      case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} />;
+      case 'HISTORY': return <SalesHistory sales={sales} storeProfile={storeProfile} onGenerateAfipInvoice={handleGenerateAfipInvoice} />;
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
       case 'FINANCE': return userRole === 'ADMIN' ? <Finance sales={sales} paymentMethods={paymentMethods} transfers={transfers} cashMovements={cashMovements} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} onAddCashMovement={handleCashMovement} /> : null;

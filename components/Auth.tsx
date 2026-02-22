@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Store, Mail, Lock, Loader2, AlertCircle, UserRound } from 'lucide-react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface AuthProps {
@@ -8,21 +8,39 @@ interface AuthProps {
 }
 
 const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [view, setView] = useState<'login' | 'signup' | 'forgotPassword'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccess('Si existe una cuenta con ese email, recibirás un correo para restablecer tu contraseña.');
+    } catch (err: any) {
+      console.error(err);
+      setError('No se pudo enviar el correo. Verifica que el email sea correcto.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      if (isLogin) {
+      if (view === 'login') {
         await signInWithEmailAndPassword(auth, email, password);
-      } else {
+      } else if (view === 'signup') {
         await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
@@ -71,10 +89,10 @@ const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
           </div>
 
           <h2 className="text-2xl font-bold text-slate-800 mb-2">
-            {isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}
+            {view === 'login' ? 'Bienvenido de nuevo' : view === 'signup' ? 'Crea tu cuenta' : 'Recupera tu contraseña'}
           </h2>
           <p className="text-slate-500 mb-8">
-            {isLogin ? 'Ingresa tus credenciales para acceder.' : 'Comienza a gestionar tu negocio hoy mismo.'}
+            {view === 'login' ? 'Ingresa tus credenciales para acceder.' : view === 'signup' ? 'Comienza a gestionar tu negocio hoy mismo.' : 'Ingresa tu email para recibir un enlace de recuperación.'}
           </p>
 
           {error && (
@@ -84,46 +102,76 @@ const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                  placeholder="tu@email.com"
-                />
-              </div>
+          {success && (
+            <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm flex items-start gap-2">
+               <AlertCircle size={16} className="mt-0.5 shrink-0" />
+               <span>{success}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
+          {view === 'forgotPassword' ? (
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Email de Recuperación</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="tu@email.com" />
+                </div>
               </div>
-            </div>
+              <button type="submit" disabled={loading} className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-brand-200">
+                {loading && <Loader2 className="animate-spin" size={18} />}
+                Enviar Correo
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+              </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-brand-200"
-            >
-              {loading && <Loader2 className="animate-spin" size={18} />}
-              {isLogin ? 'Ingresar' : 'Registrarse'}
-            </button>
-          </form>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+                {view === 'login' && (
+                  <div className="text-right mt-2">
+                    <button type="button" onClick={() => { setView('forgotPassword'); setError(null); setSuccess(null); }} className="text-sm text-brand-600 hover:underline font-semibold">
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-brand-200"
+              >
+                {loading && <Loader2 className="animate-spin" size={18} />}
+                {view === 'login' ? 'Ingresar' : 'Registrarse'}
+              </button>
+            </form>
+          )}
 
           <div className="my-6 flex items-center">
             <div className="flex-1 border-t border-slate-200"></div>
@@ -141,14 +189,21 @@ const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
 
           <div className="mt-8 text-center text-sm">
             <span className="text-slate-500">
-              {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+               {view === 'login' ? '¿No tienes cuenta?' : view === 'signup' ? '¿Ya tienes cuenta?' : ''}
             </span>
-            <button 
-              onClick={() => { setIsLogin(!isLogin); setError(null); }}
-              className="ml-1 text-brand-600 font-bold hover:underline"
-            >
-              {isLogin ? 'Regístrate gratis' : 'Inicia Sesión'}
-            </button>
+            {view !== 'forgotPassword' && (
+              <button 
+                onClick={() => { setView(view === 'login' ? 'signup' : 'login'); setError(null); setSuccess(null); }}
+                className="ml-1 text-brand-600 font-bold hover:underline"
+              >
+                {view === 'login' ? 'Regístrate gratis' : 'Inicia Sesión'}
+              </button>
+            )}
+            {view === 'forgotPassword' && (
+               <button onClick={() => { setView('login'); setError(null); setSuccess(null); }} className="ml-1 text-brand-600 font-bold hover:underline">
+                 Volver a Iniciar Sesión
+               </button>
+            )}
           </div>
         </div>
       </div>
