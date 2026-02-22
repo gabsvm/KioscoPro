@@ -82,5 +82,5 @@ app.post('/api/afip/generate-invoice', verifyFirebaseToken, async (req: Authenti
   }
 });
 
-// This is the Vercel entrypoint
+// This is the Vercel entrypoint. Triggering a new check.
 export default app;
