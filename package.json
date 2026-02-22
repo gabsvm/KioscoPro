@@ -3,9 +3,9 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx api/index.ts",
     "build": "npm run build:client && npm run build:server",
-    "start": "node dist/server.js",
+    "start": "node dist/api/index.js",
     "lint": "tsc --noEmit",
     "build:client": "vite build",
     "build:server": "tsc --project tsconfig.server.json"

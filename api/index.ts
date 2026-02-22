@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import admin from 'firebase-admin';
-import { StoreProfile } from './types'; // Import types
+import { StoreProfile } from '../types'; // Import types
 
 // Initialize Firebase Admin SDK
 if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
