@@ -66,74 +66,74 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
       {/* Stats Grid */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-6`}>
         {/* Sales Today - Visible to everyone */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Ventas Hoy</p>
-              <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyRevenue)}</h3>
+        <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+          <div className="flex justify-between items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-slate-500 truncate">Ventas Hoy</p>
+              <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyRevenue)}</h3>
             </div>
-            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0">
               <DollarSign size={20} />
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-2">{todaysSales.length} transacciones</p>
+          <p className="text-xs text-slate-400 mt-2 truncate">{todaysSales.length} transacciones</p>
         </div>
 
         {/* Admin Only Cards */}
         {isAdmin && (
           <>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Ganancia Hoy</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(dailyProfit)}</h3>
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-500 truncate">Ganancia Hoy</p>
+                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyProfit)}</h3>
                 </div>
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
                   <TrendingUp size={20} />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Margen: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
+              <p className="text-xs text-slate-400 mt-2 truncate">Margen: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Valor Inventario</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(totalStockValue)}</h3>
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-500 truncate">Valor Inventario</p>
+                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(totalStockValue)}</h3>
                 </div>
-                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                <div className="p-2 bg-purple-100 rounded-lg text-purple-600 shrink-0">
                   <Package size={20} />
                 </div>
               </div>
-               <p className="text-xs text-slate-400 mt-2">Costo de reposición</p>
+               <p className="text-xs text-slate-400 mt-2 truncate">Costo de reposición</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Productos</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">{products.length}</h3>
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-500 truncate">Productos</p>
+                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{products.length}</h3>
                 </div>
-                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0">
                   <ShoppingBag size={20} />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Total en catálogo</p>
+              <p className="text-xs text-slate-400 mt-2 truncate">Total en catálogo</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Saldo Cajas</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-2">
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-500 truncate">Saldo Cajas</p>
+                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">
                     {formatCurrency(paymentMethods.reduce((acc, m) => acc + m.balance, 0))}
                   </h3>
                 </div>
-                <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+                <div className="p-2 bg-orange-100 rounded-lg text-orange-600 shrink-0">
                   <CreditCard size={20} />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2">{paymentMethods.length} activos</p>
+              <p className="text-xs text-slate-400 mt-2 truncate">{paymentMethods.length} activos</p>
             </div>
           </>
         )}
