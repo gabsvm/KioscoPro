@@ -11,6 +11,7 @@
     "build:server": "tsc --project tsconfig.server.json"
   },
   "dependencies": {
+    "@afipsdk/afip.js": "^1.2.2",
     "@google/genai": "*",
     "@tailwindcss/line-clamp": "^0.4.4",
     "express": "^5.2.1",

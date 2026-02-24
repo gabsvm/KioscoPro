@@ -49,6 +49,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
   
   // Processing State to prevent duplicates
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isInvoicing, setIsInvoicing] = useState(false); // For AFIP call
 
   // Invoice State
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -309,11 +310,39 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
 
       let invoiceData: InvoiceData | undefined = undefined;
       if (showInvoiceForm) {
-        invoiceData = {
-          type: invoiceType,
-          number: `0000${Math.floor(Math.random() * 10000)}`,
-          clientName, clientCuit, clientAddress: '', conditionIva
-        };
+        setIsInvoicing(true);
+        try {
+          const invoiceRes = await fetch('/api/generate-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sale: { totalAmount: finalTotal, items: finalCartItems }, profile: storeProfile })
+          });
+
+          if (!invoiceRes.ok) {
+            const errorData = await invoiceRes.json();
+            throw new Error(errorData.message || 'Error de AFIP al generar factura.');
+          }
+
+          const afipResult = await invoiceRes.json();
+
+          invoiceData = {
+            type: invoiceType,
+            number: `${storeProfile.posNumber}-${afipResult.voucherNumber}`,
+            clientName, 
+            clientCuit, 
+            clientAddress: '', 
+            conditionIva,
+            cae: afipResult.cae,
+            caeVto: afipResult.caeDueDate
+          };
+        } catch (afipError: any) {
+          console.error("AFIP invoicing error:", afipError);
+          alert(`Error al facturar con AFIP: ${afipError.message}`);
+          setIsInvoicing(false);
+          setIsProcessing(false);
+          return; // Stop the sale process if invoicing fails
+        }
+        setIsInvoicing(false);
       }
 
       const sale = await onCompleteSale(finalCartItems, finalPayments, invoiceData, selectedCustomerId, isCreditSale);
@@ -503,6 +532,20 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   <button onClick={() => {setIsCreditSale(true); setIsSplitPayment(false)}} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${isCreditSale ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}><Users size={12} /> Fiado</button>
                 </div>
 
+                {/* AFIP Invoice Checkbox */}
+                {storeProfile.afipConfig?.cuit && storeProfile.posNumber && (
+                  <div className="flex items-center gap-2 p-2 bg-sky-50 border border-sky-100 rounded-lg mt-3">
+                    <input 
+                      type="checkbox" 
+                      id="afip-invoice-check"
+                      checked={showInvoiceForm}
+                      onChange={e => setShowInvoiceForm(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    <label htmlFor="afip-invoice-check" className="text-xs font-bold text-sky-800">Generar Factura Fiscal (AFIP)</label>
+                  </div>
+                )}
+
                 {isCreditSale ? (
                   /* Fiado Section */
                   <div className="space-y-3 p-2 bg-orange-50 border border-orange-100 rounded-lg">
@@ -584,7 +627,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                    >
                      {isProcessing ? (
                         <>
-                           <Loader2 size={18} className="animate-spin" /> Procesando...
+                           <Loader2 size={18} className="animate-spin" /> {isInvoicing ? 'Facturando...' : 'Procesando...'}
                         </>
                      ) : (
                         <>

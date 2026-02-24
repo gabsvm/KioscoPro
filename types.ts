@@ -166,6 +166,7 @@ export interface StoreProfile {
   sellerPin?: string;
   logoUrl?: string; 
   afipConfig?: AfipConfig;
+  posNumber?: number;
 }
 
 export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS' | 'COMBOS';

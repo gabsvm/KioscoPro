@@ -269,6 +269,19 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Punto de Venta</label>
+            <input 
+              type="number" 
+              name="posNumber"
+              value={formData.posNumber || ''}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+              placeholder="Ej. 1"
+            />
+            <p className="text-xs text-slate-400 mt-1">Número de punto de venta para facturación.</p>
+          </div>
+
           <div className="col-span-full mt-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2">Credenciales Fiscales (AFIP)</h3>
           </div>
