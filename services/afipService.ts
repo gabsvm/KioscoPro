@@ -56,8 +56,8 @@ async function getAfipInstance(profile: StoreProfile): Promise<Afip> {
     key: keyPath,
     production: profile.afipConfig.environment === 'production',
     // It's good practice to handle potential missing posNumber, though we check above.
-    res_folder: path.join(process.cwd(), 'afip_res'), // Folder to store AFIP responses
-    ta_folder: path.join(process.cwd(), 'afip_ta'), // Folder to store AFIP tokens
+    res_folder: path.join('/tmp', 'afip_res'), // Folder to store AFIP responses
+    ta_folder: path.join('/tmp', 'afip_ta'), // Folder to store AFIP tokens
   });
 
   afip = afipInstance;
