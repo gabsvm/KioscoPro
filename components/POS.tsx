@@ -315,7 +315,13 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
           const invoiceRes = await fetch('/api/generate-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sale: { totalAmount: finalTotal, items: finalCartItems }, profile: storeProfile })
+            body: JSON.stringify({ 
+              sale: { totalAmount: finalTotal, items: finalCartItems }, 
+              profile: { 
+                posNumber: storeProfile.posNumber, 
+                afipConfig: storeProfile.afipConfig 
+              } 
+            })
           });
 
           if (!invoiceRes.ok) {
