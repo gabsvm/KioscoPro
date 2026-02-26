@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createElectronicInvoice } from '../../services/afipService';
+import { createElectronicInvoice } from '../../../services/afipService';
 import { Sale, StoreProfile } from '../../types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
