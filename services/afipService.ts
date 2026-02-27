@@ -3,10 +3,7 @@ import { StoreProfile, Sale } from '../types';
 import fs from 'fs/promises';
 import path from 'path';
 
-// Define a type for the electronic invoice data structure expected by AFIP
 interface AfipInvoiceData {
-  // Define the properties based on what the AFIP SDK requires
-  // This is a simplified example. You'll need to consult the SDK docs for the full structure.
   CantReg: number;
   PtoVta: number;
   CbteTipo: number;
@@ -24,7 +21,6 @@ interface AfipInvoiceData {
   ImpTrib: number;
   MonId: string;
   MonCotiz: number;
-  // Add other fields like Alicuotas, Tributos, etc. as needed
 }
 
 let afip: Afip | null = null;
@@ -34,30 +30,21 @@ async function getAfipInstance(profile: StoreProfile): Promise<Afip> {
     return afip;
   }
 
-  if (!profile.afipConfig || !profile.posNumber) {
-    throw new Error('AFIP configuration is incomplete in store profile.');
+  if (!profile.cuit || !profile.posNumber || !profile.afipConfig) {
+    throw new Error('AFIP configuration (CUIT, POS number, environment) is incomplete in the store profile.');
   }
 
-  // In a real app, you might need to write these to temp files if the SDK requires file paths
-  // For this example, we'll assume the SDK can take content directly if possible,
-  // or we'll proceed with writing them.
+  const certPath = path.resolve(process.cwd(), 'certificate.pem');
+  const keyPath = path.resolve(process.cwd(), 'private_key.pem');
 
-  // The SDK likely requires file paths, so let's write them to a temporary location.
-  // Note: In a serverless or containerized environment, the /tmp directory is often writable.
-  const certPath = path.join('/tmp', 'afip.crt');
-  const keyPath = path.join('/tmp', 'afip.key');
-
-  await fs.writeFile(certPath, profile.afipConfig.cert);
-  await fs.writeFile(keyPath, profile.afipConfig.privateKey);
+  const certContent = await fs.readFile(certPath, 'utf-8');
+  const keyContent = await fs.readFile(keyPath, 'utf-8');
 
   const afipInstance = new Afip({
-    CUIT: profile.afipConfig.cuit,
-    cert: certPath,
-    key: keyPath,
+    CUIT: profile.cuit,
+    cert: certContent,
+    key: keyContent,
     production: profile.afipConfig.environment === 'production',
-    // It's good practice to handle potential missing posNumber, though we check above.
-    res_folder: path.join('/tmp', 'afip_res'), // Folder to store AFIP responses
-    ta_folder: path.join('/tmp', 'afip_ta'), // Folder to store AFIP tokens
   });
 
   afip = afipInstance;
@@ -68,7 +55,6 @@ export async function createElectronicInvoice(sale: Sale, profile: StoreProfile)
   try {
     const afip = await getAfipInstance(profile);
 
-    // 1. Get Last Voucher Number to determine the next one
     const lastVoucher = await afip.ElectronicBilling.getLastVoucher({
         PtoVta: profile.posNumber!,
         CbteTipo: 6, // Factura B
@@ -76,44 +62,40 @@ export async function createElectronicInvoice(sale: Sale, profile: StoreProfile)
 
     const nextVoucherNumber = lastVoucher + 1;
 
-    // 2. Prepare the invoice data
-    // This is a highly simplified mapping. A real implementation needs to handle
-    // different invoice types (A, B, C), document types, IVA calculations, etc.
     const invoiceData: AfipInvoiceData = {
-      CantReg: 1, // Creating one invoice
+      CantReg: 1,
       PtoVta: profile.posNumber!,
-      CbteTipo: 6, // 6 = Factura B
-      Concepto: 1, // 1 = Productos
-      DocTipo: 99, // 99 = Consumidor Final
-      DocNro: 0, // 0 for Consumidor Final
+      CbteTipo: 6, 
+      Concepto: 1, 
+      DocTipo: 99, 
+      DocNro: 0, 
       CbteDesde: nextVoucherNumber,
       CbteHasta: nextVoucherNumber,
-      CbteFch: new Date().toISOString().slice(0, 10).replace(/-/g, ''), // YYYYMMDD format
+      CbteFch: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
       ImpTotal: sale.totalAmount,
-      ImpTotConc: 0, // Net non-taxable
-      ImpNeto: sale.totalAmount / 1.21, // Assuming 21% IVA
-      ImpOpEx: 0, // Exempt operations
+      ImpTotConc: 0,
+      ImpNeto: sale.totalAmount / 1.21,
+      ImpOpEx: 0,
       ImpIVA: sale.totalAmount - (sale.totalAmount / 1.21),
-      ImpTrib: 0, // Other tributes
-      MonId: 'PES', // Currency: Argentine Peso
-      MonCotiz: 1, // Exchange rate
+      ImpTrib: 0,
+      MonId: 'PES',
+      MonCotiz: 1,
     };
 
-    // 3. Create the invoice
     const result = await afip.ElectronicBilling.createVoucher(invoiceData);
 
     console.log('Invoice created successfully:', result);
 
-    // The result contains the CAE and VencimientoCAE
     return {
+      success: true,
       cae: result.CAE,
       caeDueDate: result.CAEFchVto,
       voucherNumber: nextVoucherNumber,
+      invoiceId: result.voucher_number, 
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating AFIP invoice:', error);
-    // Rethrow or handle the error as needed
-    throw error;
+    throw new Error(error.message || 'Unknown error from afipService');
   }
 }

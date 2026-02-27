@@ -705,13 +705,13 @@ const App: React.FC = () => {
       }
       const token = await user.getIdToken();
 
-      const response = await fetch('/api/afip/generate-invoice', {
+      const response = await fetch('/api/generate-invoice', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ saleData: sanitizeForFirestore(sale) }),
+        body: JSON.stringify({ sale: sanitizeForFirestore(sale), profile: sanitizeForFirestore(storeProfile) }),
       });
 
       const result = await response.json();
