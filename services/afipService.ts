@@ -21,31 +21,19 @@ interface AfipInvoiceData {
   MonCotiz: number;
 }
 
-let afip: Afip | null = null;
-
-async function getAfipInstance(profile: StoreProfile, certContent: string, keyContent: string): Promise<Afip> {
-  if (afip) {
-    return afip;
-  }
-
-  if (!profile.cuit || !profile.posNumber || !profile.afipConfig) {
-    throw new Error('AFIP configuration (CUIT, POS number, environment) is incomplete in the store profile.');
-  }
-
-  const afipInstance = new Afip({
-    CUIT: profile.cuit,
-    cert: certContent,
-    key: keyContent,
-    production: profile.afipConfig.environment === 'production',
-  });
-
-  afip = afipInstance;
-  return afip;
-}
-
 export async function createElectronicInvoice(sale: Sale, profile: StoreProfile, certContent: string, keyContent: string): Promise<any> {
   try {
-    const afip = await getAfipInstance(profile, certContent, keyContent);
+    if (!profile.cuit || !profile.posNumber || !profile.afipConfig) {
+      throw new Error('AFIP configuration (CUIT, POS number, environment) is incomplete in the store profile.');
+    }
+
+    const afip = new Afip({
+      CUIT: profile.cuit,
+      cert: certContent,
+      key: keyContent,
+      production: profile.afipConfig.environment === 'production',
+      storagePath: '/tmp'
+    });
 
     const lastVoucher = await afip.ElectronicBilling.getLastVoucher({
         PtoVta: profile.posNumber!,
