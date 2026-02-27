@@ -1,7 +1,5 @@
 import Afip from '@afipsdk/afip.js';
 import { StoreProfile, Sale } from '../types';
-import fs from 'fs/promises';
-import path from 'path';
 
 interface AfipInvoiceData {
   CantReg: number;
@@ -25,7 +23,7 @@ interface AfipInvoiceData {
 
 let afip: Afip | null = null;
 
-async function getAfipInstance(profile: StoreProfile): Promise<Afip> {
+async function getAfipInstance(profile: StoreProfile, certContent: string, keyContent: string): Promise<Afip> {
   if (afip) {
     return afip;
   }
@@ -33,12 +31,6 @@ async function getAfipInstance(profile: StoreProfile): Promise<Afip> {
   if (!profile.cuit || !profile.posNumber || !profile.afipConfig) {
     throw new Error('AFIP configuration (CUIT, POS number, environment) is incomplete in the store profile.');
   }
-
-  const certPath = path.resolve(process.cwd(), 'certificate.pem');
-  const keyPath = path.resolve(process.cwd(), 'private_key.pem');
-
-  const certContent = await fs.readFile(certPath, 'utf-8');
-  const keyContent = await fs.readFile(keyPath, 'utf-8');
 
   const afipInstance = new Afip({
     CUIT: profile.cuit,
@@ -51,9 +43,9 @@ async function getAfipInstance(profile: StoreProfile): Promise<Afip> {
   return afip;
 }
 
-export async function createElectronicInvoice(sale: Sale, profile: StoreProfile): Promise<any> {
+export async function createElectronicInvoice(sale: Sale, profile: StoreProfile, certContent: string, keyContent: string): Promise<any> {
   try {
-    const afip = await getAfipInstance(profile);
+    const afip = await getAfipInstance(profile, certContent, keyContent);
 
     const lastVoucher = await afip.ElectronicBilling.getLastVoucher({
         PtoVta: profile.posNumber!,
