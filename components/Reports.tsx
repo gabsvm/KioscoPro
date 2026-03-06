@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Sale, PaymentMethod } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Calendar, DollarSign, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
+import { Calendar, DollarSign, ShoppingCart, TrendingUp, Wallet, Download, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../utils';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface ReportsProps {
   sales: Sale[];
@@ -10,10 +12,13 @@ interface ReportsProps {
 }
 
 const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
-  const [dateRange, setDateRange] = useState<{start: string, end: string}>({
+  const [dateRange, setDateRange] = useState<{ start: string, end: string }>({
     start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0], // Last 30 days
     end: new Date().toISOString().split('T')[0]
   });
+
+  const [isExporting, setIsExporting] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const filteredSales = useMemo(() => {
     const start = new Date(dateRange.start).getTime();
@@ -44,9 +49,9 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
-    setDateRange({ 
-      start: start.toISOString().split('T')[0], 
-      end: end.toISOString().split('T')[0] 
+    setDateRange({
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
     });
   };
 
@@ -54,10 +59,69 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setDateRange({ 
-      start: start.toISOString().split('T')[0], 
-      end: end.toISOString().split('T')[0] 
+    setDateRange({
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
     });
+  };
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    try {
+      setIsExporting(true);
+
+      // Select the element to capture
+      const element = reportRef.current;
+
+      // Temporarily adjust styling for better capture if needed
+      // (e.g. removing scrollbars, setting a fixed width)
+
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher density for clearer text
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#f8fafc', // match tailwind slate-50
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+      // Calculate PDF dimensions (A4 size)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculate image dimensions to fit PDF width
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // Add image to PDF
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add extra pages if content exceeds one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`KioscoPro_Reporte_${dateRange.start}_al_${dateRange.end}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Hubo un error al generar el PDF. Revisa la consola para más detalles.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Aggregate Data for Charts - Supports Split Payments
@@ -69,8 +133,8 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
       if (sale.payments && sale.payments.length > 0) {
         // Handle split payments
         sale.payments.forEach(p => {
-           const current = totals.get(p.methodId) || 0;
-           totals.set(p.methodId, current + p.amount);
+          const current = totals.get(p.methodId) || 0;
+          totals.set(p.methodId, current + p.amount);
         });
       } else {
         // Fallback for legacy sales (single method)
@@ -87,8 +151,8 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
   }, [filteredSales, paymentMethods]);
 
   const topProducts = useMemo(() => {
-    const productMap = new Map<string, {name: string, quantity: number, revenue: number}>();
-    
+    const productMap = new Map<string, { name: string, quantity: number, revenue: number }>();
+
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
         const existing = productMap.get(item.productId) || { name: item.productName, quantity: 0, revenue: 0 };
@@ -111,195 +175,211 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Reportes de Venta</h2>
-        
+
         {/* Filters Container */}
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
+
+          <button
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            Exportar PDF
+          </button>
+
+          <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+
           {/* Quick Buttons */}
           <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
-             <button onClick={setToday} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-               Hoy
-             </button>
-             <button onClick={setLast7Days} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-               7 Días
-             </button>
-             <button onClick={setThisMonth} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-               Este Mes
-             </button>
+            <button onClick={setToday} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+              Hoy
+            </button>
+            <button onClick={setLast7Days} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+              7 Días
+            </button>
+            <button onClick={setThisMonth} className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+              Este Mes
+            </button>
           </div>
 
           {/* Date Picker */}
           <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full md:w-auto">
             <Calendar size={18} className="text-slate-400 ml-2" />
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={dateRange.start}
-              onChange={e => setDateRange(prev => ({...prev, start: e.target.value}))}
+              onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
               className="text-sm border-none focus:ring-0 text-slate-600 bg-transparent flex-1 md:flex-none min-w-0"
             />
             <span className="text-slate-300">-</span>
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={dateRange.end}
-              onChange={e => setDateRange(prev => ({...prev, end: e.target.value}))}
+              onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
               className="text-sm border-none focus:ring-0 text-slate-600 bg-transparent flex-1 md:flex-none min-w-0"
             />
           </div>
         </div>
       </div>
 
-      {/* Highlights Strip - Added per user request */}
-      <div className="bg-slate-800 text-white p-4 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-in fade-in slide-in-from-top-2">
-         <div className="flex items-center gap-3">
+      {/* Ref container for PDF Export */}
+      <div ref={reportRef} className="space-y-6 bg-slate-50 p-2 -m-2 rounded-xl">
+        {/* Highlights Strip - Added per user request */}
+        <div className="bg-slate-800 text-white p-4 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg"><Wallet size={24} /></div>
             <div>
-               <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Total Ventas Periodo Seleccionado</p>
-               <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+              <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Total Ventas Periodo Seleccionado</p>
+              <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
             </div>
-         </div>
-         <div className="h-full w-px bg-white/10 hidden md:block"></div>
-         <div className="flex items-center gap-3">
+          </div>
+          <div className="h-full w-px bg-white/10 hidden md:block"></div>
+          <div className="flex items-center gap-3">
             <div className="text-right">
-               <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Ganancia Estimada</p>
-               <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalProfit)}</p>
+              <p className="text-xs text-slate-300 font-bold uppercase tracking-wider">Ganancia Estimada</p>
+              <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalProfit)}</p>
             </div>
-         </div>
-      </div>
-
-      {/* Summary Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
-             <div>
-               <p className="text-sm font-medium text-slate-500 uppercase">Total Vendido</p>
-               <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(totalRevenue)}</h3>
-             </div>
-             <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
-               <DollarSign size={24} />
-             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
-             <div>
-               <p className="text-sm font-medium text-slate-500 uppercase">Transacciones</p>
-               <h3 className="text-3xl font-bold text-slate-800 mt-1">{totalTransactions}</h3>
-             </div>
-             <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
-               <ShoppingCart size={24} />
-             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
-             <div>
-               <p className="text-sm font-medium text-slate-500 uppercase">Ticket Promedio</p>
-               <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(averageTicket)}</h3>
-             </div>
-             <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
-               <TrendingUp size={24} />
-             </div>
-          </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payment Methods Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="font-bold text-slate-800 mb-4">Ventas por Método de Pago</h3>
-          <div className="h-64">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                   data={salesByPaymentMethod}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={60}
-                   outerRadius={80}
-                   fill="#8884d8"
-                   paddingAngle={5}
-                   dataKey="value"
-                 >
-                   {salesByPaymentMethod.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                   ))}
-                 </Pie>
-                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                 <Legend />
-               </PieChart>
-             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Top Products Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="font-bold text-slate-800 mb-4">Top 5 Productos Vendidos (Unidades)</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topProducts} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                <Tooltip />
-                <Bar dataKey="quantity" fill="#0ea5e9" radius={[0, 4, 4, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Summary Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500 uppercase">Total Vendido</p>
+              <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(totalRevenue)}</h3>
+            </div>
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+              <DollarSign size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500 uppercase">Transacciones</p>
+              <h3 className="text-3xl font-bold text-slate-800 mt-1">{totalTransactions}</h3>
+            </div>
+            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
+              <ShoppingCart size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500 uppercase">Ticket Promedio</p>
+              <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(averageTicket)}</h3>
+            </div>
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-lg">
+              <TrendingUp size={24} />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Detailed Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <h3 className="font-bold text-slate-800">Detalle de Ventas</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Payment Methods Chart */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-4">Ventas por Método de Pago</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={salesByPaymentMethod}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {salesByPaymentMethod.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Top Products Chart */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-4">Top 5 Productos Vendidos (Unidades)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topProducts} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="quantity" fill="#0ea5e9" radius={[0, 4, 4, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-medium">
-              <tr>
-                <th className="px-6 py-3">ID Venta</th>
-                <th className="px-6 py-3">Fecha</th>
-                <th className="px-6 py-3">Método(s)</th>
-                <th className="px-6 py-3">Items</th>
-                <th className="px-6 py-3 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredSales.slice().reverse().map(sale => (
-                <tr key={sale.id} className="hover:bg-slate-50">
-                   <td className="px-6 py-3 font-mono text-xs text-slate-400">#{sale.id.slice(-6)}</td>
-                   <td className="px-6 py-3 text-slate-600">{new Date(sale.timestamp).toLocaleString()}</td>
-                   <td className="px-6 py-3">
-                     {sale.payments && sale.payments.length > 1 ? (
+
+        {/* Detailed Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="font-bold text-slate-800">Detalle de Ventas</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500 font-medium">
+                <tr>
+                  <th className="px-6 py-3">ID Venta</th>
+                  <th className="px-6 py-3">Fecha</th>
+                  <th className="px-6 py-3">Método(s)</th>
+                  <th className="px-6 py-3">Items</th>
+                  <th className="px-6 py-3 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSales.slice().reverse().map(sale => (
+                  <tr key={sale.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 font-mono text-xs text-slate-400">#{sale.id.slice(-6)}</td>
+                    <td className="px-6 py-3 text-slate-600">{new Date(sale.timestamp).toLocaleString()}</td>
+                    <td className="px-6 py-3">
+                      {sale.payments && sale.payments.length > 1 ? (
                         <div className="flex flex-col gap-1">
                           {sale.payments.map((p, i) => (
-                             <span key={i} className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded border border-slate-200 w-fit whitespace-nowrap">
-                               {p.methodName}: {formatCurrency(p.amount)}
-                             </span>
+                            <span key={i} className="text-[10px] text-slate-500 bg-slate-100 px-1 rounded border border-slate-200 w-fit whitespace-nowrap">
+                              {p.methodName}: {formatCurrency(p.amount)}
+                            </span>
                           ))}
                         </div>
-                     ) : (
+                      ) : (
                         <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-600 border border-slate-200">
-                           {sale.paymentMethodName}
+                          {sale.paymentMethodName}
                         </span>
-                     )}
-                   </td>
-                   <td className="px-6 py-3 text-slate-600">
-                     <span className="line-clamp-2" title={sale.items.map(i => i.productName).join(', ')}>
-                       {sale.items.length} items ({sale.items.map(i => i.productName).slice(0, 2).join(', ')}{sale.items.length > 2 ? '...' : ''})
-                     </span>
-                   </td>
-                   <td className="px-6 py-3 text-right font-bold text-slate-800">
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">
+                      <span className="line-clamp-2" title={sale.items.map(i => i.productName).join(', ')}>
+                        {sale.items.length} items ({sale.items.map(i => i.productName).slice(0, 2).join(', ')}{sale.items.length > 2 ? '...' : ''})
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-right font-bold text-slate-800">
                       {formatCurrency(sale.totalAmount)}
-                   </td>
-                </tr>
-              ))}
-              {filteredSales.length === 0 && (
-                 <tr>
-                   <td colSpan={5} className="px-6 py-8 text-center text-slate-400 bg-slate-50">
+                    </td>
+                  </tr>
+                ))}
+                {filteredSales.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400 bg-slate-50">
                       No hay ventas en este período.
-                   </td>
-                 </tr>
-              )}
-            </tbody>
-          </table>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+      </div> {/* End ref container */}
     </div>
   );
 };
