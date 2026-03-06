@@ -69,10 +69,10 @@ export async function createElectronicInvoice(sale: Sale, profile: StoreProfile)
     const afip = await getAfipInstance(profile);
 
     // 1. Get Last Voucher Number to determine the next one
-    const lastVoucher = await afip.ElectronicBilling.getLastVoucher({
-        PtoVta: profile.posNumber!,
-        CbteTipo: 6, // Factura B
-    });
+    const lastVoucher = await afip.ElectronicBilling.getLastVoucher(
+      profile.posNumber!,
+      6 // CbteTipo: Factura B
+    );
 
     const nextVoucherNumber = lastVoucher + 1;
 
