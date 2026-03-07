@@ -3,13 +3,8 @@ import json
 import os
 import tempfile
 import traceback
-import sys
 import datetime
-
-import cryptography
-import OpenSSL
-from pyafipws.wsaa import WSAA
-from pyafipws.wsfev1 import WSFEv1
+from afip import Afip
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -37,8 +32,6 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             is_prod = afip_config.get('environment') == 'production'
-            url_wsaa = "https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl" if is_prod else "https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl"
-            url_wsfev1 = "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL" if is_prod else "https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL"
             cuit = afip_config.get('cuit')
             
             tmp_dir = tempfile.gettempdir()
@@ -50,67 +43,62 @@ class handler(BaseHTTPRequestHandler):
             with open(key_path, 'w') as f:
                 f.write(afip_config.get('privateKey', ''))
                 
-            cache_dir = tmp_dir
+            afip = Afip({
+                "CUIT": int(cuit),
+                "cert": cert_path,
+                "key": key_path,
+                "production": is_prod,
+                "res_folder": tmp_dir,
+                "ta_folder": tmp_dir
+            })
             
-            # Auth WSAA
-            wsaa = WSAA()
-            ta = wsaa.Autenticar("wsfe", cert_path, key_path, url_wsaa, cache_dir, debug=False)
-            
-            # Connect WSFEv1
-            wsfev1 = WSFEv1()
-            wsfev1.Cuit = cuit
-            wsfev1.SetTicketAcceso(ta)
-            wsfev1.Conectar(cache_dir, url_wsfev1)
-            
-            # Form invoice data
             punto_vta = int(profile.get('posNumber', 1))
             tipo_cbte = 6  # Factura B
             
-            # Autonumerar
-            ult = wsfev1.CompUltimoAutorizado(tipo_cbte, punto_vta)
-            cbte_nro = int(ult) + 1 if ult else 1
+            # Obtener el ultimo comprobante
+            last_voucher = afip.ElectronicBilling.getLastVoucher(punto_vta, tipo_cbte)
+            cbte_nro = last_voucher + 1
             
-            fecha_cbte = datetime.datetime.now().strftime("%Y%m%d")
             total_amount = float(sale.get('totalAmount', 0))
             
-            # Assuming 21% IVA logic similar to node.js implementation
+            # Calculo basico de IVA 21%
             imp_neto = round(total_amount / 1.21, 2)
             imp_iva = round(total_amount - imp_neto, 2)
-            # Correct rounding to ensure imp_neto + imp_iva == total_amount
+            # Aseguro el total_amount
             imp_neto = round(total_amount - imp_iva, 2)
             
-            # Prepare invoice
-            wsfev1.CrearFactura(
-                concepto=1,
-                tipo_doc=99,
-                nro_doc=0,
-                tipo_cbte=tipo_cbte,
-                punto_vta=punto_vta,
-                cbt_desde=cbte_nro,
-                cbt_hasta=cbte_nro,
-                imp_total=total_amount,
-                imp_tot_conc=0.00,
-                imp_neto=imp_neto,
-                imp_iva=imp_iva,
-                imp_trib=0.00,
-                imp_op_ex=0.00,
-                fecha_cbte=fecha_cbte,
-                moneda_id='PES',
-                moneda_ctz=1.000
-            )
+            fecha = datetime.datetime.now().strftime("%Y%m%d")
+
+            invoice_data = {
+	            'CantReg' 	: 1,  # Cantidad de facturas a registrar
+	            'PtoVta' 	: punto_vta,  # Punto de venta
+	            'CbteTipo' 	: tipo_cbte,  # 6 = Factura B
+	            'Concepto' 	: 1,  # 1 = Productos
+	            'DocTipo' 	: 99, # 99 = Consumidor Final
+	            'DocNro' 	: 0,
+	            'CbteDesde' : cbte_nro,
+	            'CbteHasta' : cbte_nro,
+	            'CbteFch' 	: int(fecha),
+	            'ImpTotal' 	: total_amount,
+	            'ImpTotConc': 0, # Neto no gravado
+	            'ImpNeto' 	: imp_neto,
+	            'ImpOpEx' 	: 0,
+	            'ImpIVA' 	: imp_iva,
+	            'ImpTrib' 	: 0,
+	            'MonId' 	: 'PES', # Pesos
+	            'MonCotiz' 	: 1, # Cotizacion
+               'Iva'       : [{ # Alícuota de IVA
+                    'Id'      : 5, # 5 = 21%
+                    'BaseImp' : imp_neto,
+                    'Importe' : imp_iva
+                }]
+            }
             
-            # Agregar IVA 21%
-            wsfev1.AgregarIva(id=5, base_imp=imp_neto, importe=imp_iva)
+            res = afip.ElectronicBilling.createVoucher(invoice_data)
             
-            # Solicitar CAE
-            wsfev1.CAESolicitar()
-            
-            if wsfev1.ErrMsg:
-                raise Exception(wsfev1.ErrMsg)
-                
             result = {
-                "cae": wsfev1.CAE,
-                "caeDueDate": wsfev1.Vencimiento,
+                "cae": res['CAE'],
+                "caeDueDate": res['CAEFchVto'],
                 "voucherNumber": cbte_nro
             }
             
