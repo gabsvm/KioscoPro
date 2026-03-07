@@ -312,7 +312,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
       if (showInvoiceForm) {
         setIsInvoicing(true);
         try {
-          const invoiceRes = await fetch('/api/generate-invoice', {
+          const invoiceRes = await fetch('/api/afip', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

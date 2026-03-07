@@ -1,0 +1,4 @@
+pyafipws==2.7.1874
+cryptography==41.0.1
+httplib2==0.20.4
+pyopenssl

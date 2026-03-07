@@ -2,10 +2,21 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/afip.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    },
+    {
       "src": "pages/api/generate-invoice.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["../../certificate.pem", "../../private_key.pem"]
+        "includeFiles": [
+          "../../certificate.pem",
+          "../../private_key.pem"
+        ]
       }
     },
     {
@@ -18,8 +29,16 @@
   ],
   "rewrites": [
     {
+      "source": "/api/afip",
+      "destination": "/api/afip.py"
+    },
+    {
       "source": "/api/generate-invoice",
       "destination": "/pages/api/generate-invoice.ts"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
     },
     {
       "source": "/(.*)",
