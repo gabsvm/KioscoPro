@@ -411,8 +411,8 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                         <h4 className="font-bold text-sm md:text-base text-white line-clamp-2 leading-tight">{item.name}</h4>
                         <p className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Combo Especial</p>
                       </div>
-                      <div className="text-right mt-auto pt-2">
-                        <span className="font-black text-base md:text-lg text-white">{formatCurrency(item.price)}</span>
+                      <div className="mt-auto pt-3 flex flex-wrap justify-end">
+                        <span className="font-black text-sm md:text-base lg:text-lg text-white truncate">{formatCurrency(item.price)}</span>
                       </div>
                     </div>
                   </div>
@@ -424,7 +424,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                   <div
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className={`bg-white p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-brand-300 cursor-pointer transition-all duration-300 active:scale-95 flex flex-col h-full min-h-[130px] relative group ${product.isFavorite ? 'ring-2 ring-yellow-400/50 bg-yellow-50/30' : ''}`}>
+                    className={`bg-white p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-brand-300 cursor-pointer transition-all duration-300 active:scale-95 flex flex-col h-full min-h-[130px] relative group overflow-hidden ${product.isFavorite ? 'ring-2 ring-yellow-400/50 bg-yellow-50/30' : ''}`}>
 
                     {/* Icons are absolutely positioned and do not affect the layout flow */}
                     {product.isFavorite && <div className="absolute top-2 left-2 text-yellow-400"><Star size={12} fill="currentColor" /></div>}
@@ -435,13 +435,13 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                       {/* Top Section (Name & Category) */}
                       <div>
                         <h4 className="font-semibold text-sm md:text-base text-slate-800 line-clamp-2 leading-tight">{product.name}</h4>
-                        <p className="text-[10px] md:text-xs text-slate-500 mt-1">{product.category}</p>
+                        <p className="text-[10px] md:text-xs text-slate-500 mt-1 truncate">{product.category}</p>
                       </div>
 
                       {/* Bottom Section (Stock & Price) - Pushed to the bottom of the wrapper */}
-                      <div className="flex justify-between items-end mt-auto pt-3">
-                        <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded-md font-bold ${product.stock > 10 ? 'bg-emerald-100/80 text-emerald-700' : 'bg-red-100/80 text-red-700'}`}>Stock: {product.stock}</span>
-                        <span className="font-extrabold text-base md:text-lg text-slate-800 drop-shadow-sm">{product.isVariablePrice ? '$-.--' : formatCurrency(product.sellingPrice)}</span>
+                      <div className="flex flex-wrap justify-between items-end mt-auto pt-3 gap-y-1 gap-x-2">
+                        <span className={`text-[10px] md:text-xs px-2 py-0.5 rounded-md font-bold shrink-0 ${product.stock > 10 ? 'bg-emerald-100/80 text-emerald-700' : 'bg-red-100/80 text-red-700'}`}>Stock: {product.stock}</span>
+                        <span className="font-extrabold text-sm md:text-base lg:text-lg text-slate-800 drop-shadow-sm truncate">{product.isVariablePrice ? '$-.--' : formatCurrency(product.sellingPrice)}</span>
                       </div>
                     </div>
                   </div>
