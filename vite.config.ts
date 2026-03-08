@@ -12,10 +12,20 @@ export default defineConfig({
         tailwindcss({
           content: [
             "./index.html",
-            "./**/*.{js,ts,jsx,tsx}",
+            "./*.{js,ts,jsx,tsx}",
+            "./components/**/*.{js,ts,jsx,tsx}",
           ],
           theme: {
             extend: {
+              fontFamily: {
+                sans: ['Outfit', 'sans-serif'],
+              },
+              boxShadow: {
+                'sm': '0 2px 8px -1px rgb(0 0 0 / 0.05)',
+                'md': '0 4px 12px -2px rgb(0 0 0 / 0.08)',
+                'lg': '0 10px 25px -3px rgb(0 0 0 / 0.1)',
+                'xl': '0 20px 35px -5px rgb(0 0 0 / 0.12)',
+              },
               colors: {
                 brand: {
                   50: '#f0f9ff',

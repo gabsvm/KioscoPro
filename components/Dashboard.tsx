@@ -34,15 +34,15 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      d.setHours(0,0,0,0);
-      
+      d.setHours(0, 0, 0, 0);
+
       const dayLabel = d.toLocaleDateString('es-ES', { weekday: 'short' });
       const daySales = sales.filter(s => {
         const sDate = new Date(s.timestamp);
-        sDate.setHours(0,0,0,0);
+        sDate.setHours(0, 0, 0, 0);
         return sDate.getTime() === d.getTime();
       });
-      
+
       data.push({
         name: dayLabel,
         ventas: daySales.reduce((acc, s) => acc + s.totalAmount, 0),
@@ -66,11 +66,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
       {/* Stats Grid */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-6`}>
         {/* Sales Today - Visible to everyone */}
-        <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-          <div className="flex justify-between items-start gap-2">
+        <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col relative group overflow-hidden">
+          <div className="flex justify-between items-start gap-2 relative z-10">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-500 truncate">Ventas Hoy</p>
-              <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyRevenue)}</h3>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider truncate">Ventas Hoy</p>
+              <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-800 mt-2 break-words group-hover:text-brand-600 transition-colors drop-shadow-sm">{formatCurrency(dailyRevenue)}</h3>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0">
               <DollarSign size={20} />
@@ -82,37 +82,37 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
         {/* Admin Only Cards */}
         {isAdmin && (
           <>
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex justify-between items-start gap-2">
+            <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col relative group overflow-hidden">
+              <div className="flex justify-between items-start gap-2 relative z-10">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-500 truncate">Ganancia Hoy</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyProfit)}</h3>
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider truncate">Ganancia Hoy</p>
+                  <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-800 mt-2 break-words group-hover:text-blue-600 transition-colors drop-shadow-sm">{formatCurrency(dailyProfit)}</h3>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
                   <TrendingUp size={20} />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2 truncate">Margen: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
+              <p className="text-xs text-slate-400 mt-2 truncate">Margen: {dailyRevenue ? ((dailyProfit / dailyRevenue) * 100).toFixed(1) : 0}%</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex justify-between items-start gap-2">
+            <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col relative group overflow-hidden">
+              <div className="flex justify-between items-start gap-2 relative z-10">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-500 truncate">Valor Inventario</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(totalStockValue)}</h3>
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider truncate">Valor Inventario</p>
+                  <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-800 mt-2 break-words group-hover:text-purple-600 transition-colors drop-shadow-sm">{formatCurrency(totalStockValue)}</h3>
                 </div>
                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600 shrink-0">
                   <Package size={20} />
                 </div>
               </div>
-               <p className="text-xs text-slate-400 mt-2 truncate">Costo de reposición</p>
+              <p className="text-xs text-slate-400 mt-2 truncate">Costo de reposición</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex justify-between items-start gap-2">
+            <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col relative group overflow-hidden">
+              <div className="flex justify-between items-start gap-2 relative z-10">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-500 truncate">Productos</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{products.length}</h3>
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider truncate">Productos</p>
+                  <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-800 mt-2 break-words group-hover:text-indigo-600 transition-colors drop-shadow-sm">{products.length}</h3>
                 </div>
                 <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0">
                   <ShoppingBag size={20} />
@@ -121,11 +121,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
               <p className="text-xs text-slate-400 mt-2 truncate">Total en catálogo</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex justify-between items-start gap-2">
+            <div className="bg-white p-5 lg:p-7 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-slate-200 transition-all duration-300 flex flex-col relative group overflow-hidden">
+              <div className="flex justify-between items-start gap-2 relative z-10">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-500 truncate">Saldo Cajas</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider truncate">Saldo Cajas</p>
+                  <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-800 mt-2 break-words group-hover:text-orange-600 transition-colors drop-shadow-sm">
                     {formatCurrency(paymentMethods.reduce((acc, m) => acc + m.balance, 0))}
                   </h3>
                 </div>
@@ -142,18 +142,18 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
       <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
         {/* Main Chart */}
         <div className={isAdmin ? 'lg:col-span-2' : ''}>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Desempeño Semanal</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all duration-300">
+            <h3 className="text-xl font-extrabold text-slate-800 mb-6 drop-shadow-sm">Desempeño Semanal</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={getLast7DaysData()}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <Tooltip 
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    cursor={{fill: '#f1f5f9'}}
+                    cursor={{ fill: '#f1f5f9' }}
                   />
                   <Bar dataKey="ventas" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Ventas" />
                   {isAdmin && <Bar dataKey="ganancia" fill="#10b981" radius={[4, 4, 0, 0]} name="Ganancia" />}
@@ -168,53 +168,53 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
           <div className="space-y-6 flex flex-col">
             {/* Stock Alerts */}
             <div className={`p-6 rounded-xl shadow-sm border relative overflow-hidden ${lowStockProducts.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
-               <div className="flex justify-between items-start mb-4">
-                 <div>
-                   <h3 className={`text-lg font-bold ${lowStockProducts.length > 0 ? 'text-orange-800' : 'text-slate-800'}`}>Alertas de Stock</h3>
-                   <p className="text-xs opacity-70">Umbral: {lowStockThreshold} u.</p>
-                 </div>
-                 {lowStockProducts.length > 0 ? (
-                   <AlertTriangle className="text-orange-500 animate-pulse" size={24} />
-                 ) : (
-                   <CheckCircle className="text-emerald-500" size={24} />
-                 )}
-               </div>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className={`text-lg font-bold ${lowStockProducts.length > 0 ? 'text-orange-800' : 'text-slate-800'}`}>Alertas de Stock</h3>
+                  <p className="text-xs opacity-70">Umbral: {lowStockThreshold} u.</p>
+                </div>
+                {lowStockProducts.length > 0 ? (
+                  <AlertTriangle className="text-orange-500 animate-pulse" size={24} />
+                ) : (
+                  <CheckCircle className="text-emerald-500" size={24} />
+                )}
+              </div>
 
-               {lowStockProducts.length > 0 ? (
-                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                   {lowStockProducts.map(p => (
-                     <div key={p.id} className="flex justify-between items-center bg-white/60 p-2 rounded-lg text-sm">
-                       <span className="font-medium text-slate-700 truncate">{p.name}</span>
-                       <span className="font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">{p.stock} u.</span>
-                     </div>
-                   ))}
-                 </div>
-               ) : (
-                 <div className="text-slate-500 text-sm italic">
-                   Inventario saludable.
-                 </div>
-               )}
+              {lowStockProducts.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {lowStockProducts.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-white/60 p-2 rounded-lg text-sm">
+                      <span className="font-medium text-slate-700 truncate">{p.name}</span>
+                      <span className="font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">{p.stock} u.</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm italic">
+                  Inventario saludable.
+                </div>
+              )}
             </div>
 
             {/* AI Assistant */}
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-xl shadow-lg relative overflow-hidden flex flex-col min-h-[300px]">
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-6 rounded-2xl shadow-[0_8px_30px_rgb(79,70,229,0.3)] relative overflow-hidden flex flex-col min-h-[300px] transition-transform hover:-translate-y-1 duration-300">
               <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
-              
+
               <div className="relative z-10 flex flex-col flex-1">
-                <div className="flex items-center gap-2 mb-4 shrink-0">
-                  <Sparkles className="text-yellow-300" size={24} />
-                  <h3 className="text-xl font-bold">IA Insights</h3>
+                <div className="flex items-center gap-2 mb-6 shrink-0">
+                  <Sparkles className="text-yellow-300 animate-pulse" size={24} />
+                  <h3 className="text-xl font-extrabold tracking-wide">IA Insights</h3>
                 </div>
-                
+
                 <div className="flex-1 bg-white/10 rounded-lg p-4 mb-4 overflow-y-auto custom-scrollbar">
                   {loadingAi ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                     </div>
                   ) : aiAnalysis ? (
-                     <div className="prose prose-invert prose-sm">
-                       <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed">{aiAnalysis}</pre>
-                     </div>
+                    <div className="prose prose-invert prose-sm">
+                      <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed">{aiAnalysis}</pre>
+                    </div>
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-indigo-100 opacity-80 text-center">
                       <p className="italic text-xs px-4">
@@ -224,7 +224,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
                   )}
                 </div>
 
-                <button 
+                <button
                   onClick={handleAiAnalysis}
                   disabled={loadingAi}
                   className="w-full shrink-0 bg-white text-indigo-600 py-3 rounded-lg font-bold hover:bg-indigo-50 transition-colors shadow-lg active:scale-95 disabled:opacity-50 text-sm"
