@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Store, Mail, Lock, Loader2, AlertCircle, UserRound } from 'lucide-react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthProps {
   onGuestLogin: () => void;
+  onDemoLogin?: (email: string) => void;
 }
 
-const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
+const Auth: React.FC<AuthProps> = ({ onGuestLogin, onDemoLogin }) => {
   const [view, setView] = useState<'login' | 'signup' | 'forgotPassword'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [masterKey, setMasterKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,9 +42,44 @@ const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
 
     try {
       if (view === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (loginErr: any) {
+          if (loginErr.code === 'auth/invalid-credential' || loginErr.code === 'auth/user-not-found') {
+            // User not found or wrong credentials - Activate Demo Mode
+            if (onDemoLogin) {
+               onDemoLogin(email);
+               return;
+            }
+          }
+          throw loginErr;
+        }
       } else if (view === 'signup') {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // Check Master Key
+        const configDoc = await getDoc(doc(db, 'app', 'config'));
+        const validMasterKey = configDoc.exists() ? configDoc.data().masterKey : "KIOSCO-ADMIN2026";
+        
+        if (masterKey !== validMasterKey) {
+          setError("Clave Maestra incorrecta. Se requiere para registrar nuevas cuentas.");
+          setLoading(false);
+          return;
+        }
+
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Initialize user doc
+        await setDoc(doc(db, 'users', userCred.user.uid, 'settings', 'config'), {
+          storeProfile: {
+            name: "MI KIOSCO",
+            owner: email.split('@')[0].toUpperCase(),
+            address: "",
+            city: "",
+            cuit: "",
+            iibb: "",
+            startDate: new Date().toLocaleDateString(),
+            ivaCondition: "Consumidor Final"
+          }
+        }, { merge: true });
       }
     } catch (err: any) {
       console.error(err);
@@ -161,6 +199,24 @@ const Auth: React.FC<AuthProps> = ({ onGuestLogin }) => {
                   </div>
                 )}
               </div>
+
+              {view === 'signup' && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Clave Maestra de Registro</label>
+                  <div className="relative">
+                    <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      required
+                      value={masterKey}
+                      onChange={(e) => setMasterKey(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                      placeholder="KIOSCO-XXXXX"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Solicita la clave maestra al administrador del sistema.</p>
+                </div>
+              )}
 
               <button 
                 type="submit" 

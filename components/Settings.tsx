@@ -1,16 +1,19 @@
-
 import React, { useState } from 'react';
-import { Store, Save, Check, Lock, ShieldAlert, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Store, Save, Check, Lock, ShieldAlert, Upload, Image as ImageIcon, Trash2, Key } from 'lucide-react';
 import { StoreProfile } from '../types';
 
 interface SettingsProps {
   storeProfile: StoreProfile;
   onUpdateProfile: (profile: StoreProfile) => void;
   onMigrateData?: () => void; // Optional function for data migration
+  masterKey?: string;
+  onUpdateMasterKey?: (key: string) => void;
+  currentUserEmail?: string | null;
 }
 
-const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMigrateData }) => {
+const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMigrateData, masterKey, onUpdateMasterKey, currentUserEmail }) => {
   const [formData, setFormData] = useState<StoreProfile>(storeProfile);
+  const [newMasterKey, setNewMasterKey] = useState(masterKey || '');
   const [saved, setSaved] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -22,6 +25,9 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateProfile(formData);
+    if (onUpdateMasterKey && currentUserEmail === 'gabsvm@gmail.com') {
+      onUpdateMasterKey(newMasterKey);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -345,6 +351,27 @@ const Settings: React.FC<SettingsProps> = ({ storeProfile, onUpdateProfile, onMi
               placeholder="Pega el contenido completo de tu archivo .key aquí"
             />
           </div>
+
+          {currentUserEmail === 'gabsvm@gmail.com' && (
+            <div className="col-span-full mt-4 bg-slate-900 text-white p-6 rounded-xl border border-slate-700">
+               <div className="flex items-center gap-3 mb-4">
+                  <Key size={24} className="text-brand-400" />
+                  <h3 className="font-bold text-lg">Configuración Maestra del Sistema</h3>
+               </div>
+               <p className="text-sm text-slate-400 mb-4">Esta sección solo es visible para el administrador principal.</p>
+               
+               <div className="max-w-md">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Clave Maestra de Registro</label>
+                  <input 
+                    type="text" 
+                    value={newMasterKey}
+                    onChange={(e) => setNewMasterKey(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-white font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Clave necesaria para que nuevos usuarios puedan registrarse.</p>
+               </div>
+            </div>
+          )}
 
         </div>
 

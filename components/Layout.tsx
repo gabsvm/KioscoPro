@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag, Layers } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag, Layers, AlertTriangle } from 'lucide-react';
 import { ViewState, UserRole, StoreProfile } from '../types';
 
 interface LayoutProps {
@@ -56,9 +55,41 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
 
   const appName = storeProfile?.name || 'KioscoPro';
   const appLogo = storeProfile?.logoUrl;
+  const isDemo = storeProfile?.demoInfo?.isActive;
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
+      {/* Confirmation Modal */}
+      {logoutConfirmType && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-8 text-center">
+            <div className="mb-6"><AlertTriangle className="mx-auto text-orange-500" size={48} /></div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              {logoutConfirmType === 'LOGOUT' ? 'Cerrar Sesión' : 'Cambiar Cuenta'}
+            </h3>
+            <p className="text-slate-600 mb-8">
+              {logoutConfirmType === 'LOGOUT' 
+                ? '¿Estás seguro de que deseas salir del sistema?' 
+                : '¿Deseas cerrar la sesión actual para ingresar con otra cuenta?'}
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setLogoutConfirmType(null)} 
+                className="flex-1 py-3 text-slate-500 font-bold rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmAction} 
+                className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside className={`hidden md:flex w-64 ${userRole === 'ADMIN' ? 'bg-slate-900' : 'bg-slate-800'} text-white flex-col shadow-xl z-20 transition-colors duration-300`}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           {appLogo ? (
@@ -70,9 +101,14 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
           )}
           <div className="overflow-hidden">
             <h1 className="font-bold text-lg leading-tight truncate">{appName}</h1>
-            <span className={`text-xs font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
-               {userRole === 'ADMIN' ? 'v3.2 Admin' : 'v3.2 Vendedor'}
-            </span>
+            <div className="flex flex-col">
+              <span className={`text-[10px] font-bold uppercase ${userRole === 'ADMIN' ? 'text-brand-400' : 'text-orange-400'}`}>
+                {userRole === 'ADMIN' ? 'v3.2 Admin' : 'v3.2 Vendedor'}
+              </span>
+              {isDemo && (
+                <span className="text-[10px] font-bold text-emerald-400 animate-pulse">MODO DEMO ACTIVO</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -164,7 +200,9 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
                       </div>
                       <div className="overflow-hidden">
                         <p className="font-bold text-slate-800 truncate">{isGuest ? 'Invitado Temporal' : userEmail}</p>
-                        <p className="text-xs text-slate-500">{isGuest ? 'Datos no sincronizados' : 'Sesión activa'}</p>
+                        <p className="text-xs text-slate-500">
+                          {isDemo ? 'Usuario de Demostración' : isGuest ? 'Datos no sincronizados' : 'Sesión activa'}
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -154,6 +154,11 @@ export interface AfipConfig {
   environment: 'testing' | 'production';
 }
 
+export interface DemoInfo {
+  isActive: boolean;
+  startDate: number;
+}
+
 export interface StoreProfile {
   name: string;
   owner: string;
@@ -167,6 +172,11 @@ export interface StoreProfile {
   logoUrl?: string; 
   afipConfig?: AfipConfig;
   posNumber?: number;
+  demoInfo?: DemoInfo;
+}
+
+export interface AppConfig {
+  masterKey: string;
 }
 
 export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'FINANCE' | 'REPORTS' | 'SUPPLIERS' | 'HISTORY' | 'SETTINGS' | 'CUSTOMERS' | 'PROMOTIONS' | 'COMBOS';

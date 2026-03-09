@@ -14,9 +14,9 @@ import Combos from './components/Combos';
 import Auth from './components/Auth';
 import { ViewState, Product, PaymentMethod, Sale, Transfer, CartItem, Supplier, Expense, InvoiceData, StoreProfile, UserRole, PaymentDetail, Customer, CashMovement, Promotion, Combo } from './types';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc, increment } from 'firebase/firestore';
-import { Lock } from 'lucide-react';
+import { onAuthStateChanged, User, signOut, signInAnonymously, updateProfile } from 'firebase/auth';
+import { doc, setDoc, deleteDoc, onSnapshot, collection, writeBatch, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { Lock, Timer } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const initialProducts: Product[] = [
@@ -88,6 +88,7 @@ const App: React.FC = () => {
   const [combos, setCombos] = useState<Combo[]>([]);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
   const [storeProfile, setStoreProfile] = useState<StoreProfile>(initialStoreProfile);
+  const [masterKey, setMasterKey] = useState<string>("KIOSCO-ADMIN2026");
 
   // --- Auth & Data Loading ---
   useEffect(() => {
@@ -138,6 +139,11 @@ const App: React.FC = () => {
              const data = snap.data();
              setLowStockThreshold(data.lowStockThreshold ?? 5);
              if (data.storeProfile) setStoreProfile(data.storeProfile);
+          }
+        }),
+        onSnapshot(doc(db, 'app', 'config'), (snap) => {
+          if (snap.exists()) {
+            setMasterKey(snap.data().masterKey);
           }
         }),
       ];
@@ -659,6 +665,12 @@ const App: React.FC = () => {
      if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ lowStockThreshold, storeProfile: profile }), { merge: true });
      else { setStoreProfile(profile); saveLocal('storeProfile', profile); }
   };
+
+  const handleUpdateMasterKey = async (newKey: string) => {
+    if (user?.email !== 'gabsvm@gmail.com') return;
+    await setDoc(doc(db, 'app', 'config'), { masterKey: newKey }, { merge: true });
+  };
+
   const handleUpdateThreshold = async (val: number) => {
      if (user) await setDoc(doc(db, 'users', user.uid, 'settings', 'config'), sanitizeForFirestore({ lowStockThreshold: val, storeProfile }), { merge: true });
      else { setLowStockThreshold(val); saveLocal('lowStockThreshold', val); }
@@ -731,6 +743,30 @@ const App: React.FC = () => {
     setIsGuestMode(false); 
   });
 
+  const handleDemoLogin = async (email: string) => {
+    try {
+      const userCred = await signInAnonymously(auth);
+      await updateProfile(userCred.user, { displayName: `DEMO: ${email}` });
+      
+      const demoProfile: StoreProfile = {
+        ...initialStoreProfile,
+        name: "MODO DEMO (7 DÍAS)",
+        demoInfo: {
+          isActive: true,
+          startDate: Date.now()
+        }
+      };
+      
+      await setDoc(doc(db, 'users', userCred.user.uid, 'settings', 'config'), {
+        storeProfile: demoProfile
+      }, { merge: true });
+      
+    } catch (error) {
+      console.error("Error activating demo mode", error);
+      alert("No se pudo activar el modo demo.");
+    }
+  };
+
   const toggleRole = () => {
     if (userRole === 'ADMIN') {
       if (!storeProfile.sellerPin || storeProfile.sellerPin.trim().length < 4) { alert("Configura un PIN de 4 dígitos antes."); setView('SETTINGS'); return; }
@@ -746,7 +782,24 @@ const App: React.FC = () => {
   };
 
   if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-900"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>;
-  if (!user && !isGuestMode) return <Auth onGuestLogin={() => setIsGuestMode(true)} />;
+  
+  // Demo expiration check
+  const isDemoExpired = storeProfile.demoInfo?.isActive && (Date.now() - storeProfile.demoInfo.startDate > 7 * 24 * 60 * 60 * 1000);
+  
+  if (isDemoExpired && user) {
+     return (
+        <div className="h-screen flex items-center justify-center bg-slate-900 p-4">
+           <div className="bg-white rounded-2xl p-8 max-w-md text-center shadow-2xl">
+              <Timer size={64} className="mx-auto text-red-500 mb-6" />
+              <h2 className="text-2xl font-bold text-slate-800 mb-4">Período de Prueba Finalizado</h2>
+              <p className="text-slate-600 mb-8">Tus 7 días de demo han expirado. Para seguir usando KioscoPro de forma permanente, contacta al administrador para registrar una cuenta oficial.</p>
+              <button onClick={handleLogout} className="w-full py-4 bg-slate-800 text-white font-bold rounded-xl">Volver al Inicio</button>
+           </div>
+        </div>
+     );
+  }
+
+  if (!user && !isGuestMode) return <Auth onGuestLogin={() => setIsGuestMode(true)} onDemoLogin={handleDemoLogin} />;
 
   const renderContent = () => {
     switch (view) {
@@ -760,7 +813,7 @@ const App: React.FC = () => {
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
       case 'FINANCE': return userRole === 'ADMIN' ? <Finance sales={sales} paymentMethods={paymentMethods} transfers={transfers} cashMovements={cashMovements} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} onAddCashMovement={handleCashMovement} /> : null;
       case 'REPORTS': return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} storeProfile={storeProfile} /> : null;
-      case 'SETTINGS': return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} onMigrateData={user ? handleMigrateData : undefined} /> : null;
+      case 'SETTINGS': return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} onMigrateData={user ? handleMigrateData : undefined} masterKey={masterKey} onUpdateMasterKey={handleUpdateMasterKey} currentUserEmail={user?.email} /> : null;
       default: return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
     }
   };
