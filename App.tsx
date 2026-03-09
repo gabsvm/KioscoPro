@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -760,7 +759,7 @@ const App: React.FC = () => {
       case 'INVENTORY': return <Inventory products={products} onAddProduct={handleAddProduct} onBulkAddProducts={handleBulkAddProducts} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} lowStockThreshold={lowStockThreshold} onUpdateThreshold={handleUpdateThreshold} isReadOnly={userRole === 'SELLER'} />;
       case 'SUPPLIERS': return userRole === 'ADMIN' ? <Suppliers suppliers={suppliers} expenses={expenses} paymentMethods={paymentMethods} onAddSupplier={handleAddSupplier} onAddExpense={handleAddExpense} products={products} onBulkUpdateProducts={handleBulkUpdateProducts} /> : null;
       case 'FINANCE': return userRole === 'ADMIN' ? <Finance sales={sales} paymentMethods={paymentMethods} transfers={transfers} cashMovements={cashMovements} onAddMethod={handleAddMethod} onUpdateMethod={handleUpdateMethod} onDeleteMethod={handleDeleteMethod} onTransfer={handleTransfer} onAddCashMovement={handleCashMovement} /> : null;
-      case 'REPORTS': return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} /> : null;
+      case 'REPORTS': return userRole === 'ADMIN' ? <Reports sales={sales} paymentMethods={paymentMethods} storeProfile={storeProfile} /> : null;
       case 'SETTINGS': return userRole === 'ADMIN' ? <Settings storeProfile={storeProfile} onUpdateProfile={handleUpdateProfile} onMigrateData={user ? handleMigrateData : undefined} /> : null;
       default: return <Dashboard sales={sales} products={products} paymentMethods={paymentMethods} lowStockThreshold={lowStockThreshold} userRole={userRole} />;
     }

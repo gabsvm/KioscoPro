@@ -1,17 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Sale, PaymentMethod } from '../types';
+import { Sale, PaymentMethod, StoreProfile } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Calendar, DollarSign, ShoppingCart, TrendingUp, Wallet, Download, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../utils';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { generateSalesReportPDF } from '../services/pdfGenerator';
 
 interface ReportsProps {
   sales: Sale[];
   paymentMethods: PaymentMethod[];
+  storeProfile: StoreProfile;
 }
 
-const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
+const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods, storeProfile }) => {
   const [dateRange, setDateRange] = useState<{ start: string, end: string }>({
     start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0], // Last 30 days
     end: new Date().toISOString().split('T')[0]
@@ -66,56 +66,9 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods }) => {
   };
 
   const handleExportPDF = async () => {
-    if (!reportRef.current) return;
     try {
       setIsExporting(true);
-
-      // Select the element to capture
-      const element = reportRef.current;
-
-      // Temporarily adjust styling for better capture if needed
-      // (e.g. removing scrollbars, setting a fixed width)
-
-      const canvas = await html2canvas(element, {
-        scale: 2, // Higher density for clearer text
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#f8fafc', // match tailwind slate-50
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-
-      // Calculate PDF dimensions (A4 size)
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Calculate image dimensions to fit PDF width
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Add image to PDF
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      // Add extra pages if content exceeds one page
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save(`KioscoPro_Reporte_${dateRange.start}_al_${dateRange.end}.pdf`);
+      generateSalesReportPDF(filteredSales, dateRange, storeProfile);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Hubo un error al generar el PDF. Revisa la consola para más detalles.");
