@@ -18,6 +18,7 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods, storeProfile }
   });
 
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDaily, setExportDaily] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const filteredSales = useMemo(() => {
@@ -68,7 +69,44 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods, storeProfile }
   const handleExportPDF = async () => {
     try {
       setIsExporting(true);
-      generateSalesReportPDF(filteredSales, dateRange, storeProfile);
+      
+      if (exportDaily && dateRange.start !== dateRange.end) {
+        // Generate daily PDFs
+        const startDate = new Date(dateRange.start);
+        const endDate = new Date(dateRange.end);
+        
+        // Ensure dates are valid
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          throw new Error("Fechas inválidas");
+        }
+        
+        // Loop through each day
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const currentDayStr = d.toISOString().split('T')[0];
+          
+          // Filter sales for this specific day
+          const dayStart = new Date(currentDayStr).getTime();
+          const dayEnd = dayStart + (86400000 - 1);
+          
+          const dailySales = filteredSales.filter(
+            s => s.timestamp >= dayStart && s.timestamp <= dayEnd
+          );
+          
+          // Generate PDF even if empty, or skip if empty? Let's skip if empty to avoid blank pages, 
+          // but if user expects it, maybe generate it. Let's generate it anyway so they know there were 0 sales.
+          generateSalesReportPDF(
+            dailySales, 
+            { start: currentDayStr, end: currentDayStr }, 
+            storeProfile
+          );
+          
+          // Add a small delay between downloads to prevent browser from blocking multiple downloads
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } else {
+        // Generate single PDF
+        generateSalesReportPDF(filteredSales, dateRange, storeProfile);
+      }
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Hubo un error al generar el PDF. Revisa la consola para más detalles.");
@@ -132,14 +170,27 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods, storeProfile }
         {/* Filters Container */}
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
 
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            Exportar PDF
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              Exportar PDF
+            </button>
+            {dateRange.start !== dateRange.end && (
+              <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={exportDaily} 
+                  onChange={(e) => setExportDaily(e.target.checked)}
+                  className="rounded border-slate-300 text-slate-800 focus:ring-slate-800 h-3 w-3"
+                />
+                PDF por día
+              </label>
+            )}
+          </div>
 
           <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
 
