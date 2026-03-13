@@ -330,8 +330,8 @@ const Reports: React.FC<ReportsProps> = ({ sales, paymentMethods, storeProfile }
           <div className="p-4 border-b border-slate-100 bg-slate-50">
             <h3 className="font-bold text-slate-800">Detalle de Ventas</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="bg-slate-50 text-slate-500 font-medium">
                 <tr>
                   <th className="px-6 py-3">ID Venta</th>

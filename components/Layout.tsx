@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag, Layers, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Wallet, BarChart3, Store, Truck, LogOut, UserCircle, Settings, ChevronDown, RefreshCw, X, User, History, Shield, Lock, Unlock, Users, Tag, Layers, AlertTriangle, Menu } from 'lucide-react';
 import { ViewState, UserRole, StoreProfile } from '../types';
 
 interface LayoutProps {
@@ -17,6 +17,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEmail, isGuest, onLogout, userRole, onToggleRole, storeProfile }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [logoutConfirmType, setLogoutConfirmType] = useState<'LOGOUT' | 'SWITCH' | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const allNavItems: { id: ViewState; label: string; icon: React.ReactNode; roles: UserRole[] }[] = [
     { id: 'DASHBOARD', label: 'Inicio', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'SELLER'] },
@@ -56,6 +57,13 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
   const appName = storeProfile?.name || 'KioscoPro';
   const appLogo = storeProfile?.logoUrl;
   const isDemo = storeProfile?.demoInfo?.isActive;
+
+  const mainBottomItems = userRole === 'ADMIN' 
+     ? visibleNavItems.filter(item => ['DASHBOARD', 'POS', 'INVENTORY', 'FINANCE', 'REPORTS'].includes(item.id))
+     : visibleNavItems;
+  const moreBottomItems = userRole === 'ADMIN'
+     ? visibleNavItems.filter(item => !['DASHBOARD', 'POS', 'INVENTORY', 'FINANCE', 'REPORTS'].includes(item.id))
+     : [];
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
@@ -262,20 +270,56 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children, userEma
            {children}
         </div>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar">
-           {visibleNavItems.map(item => (
+        {/* Mobile Nav Drawer */}
+        {isMobileMenuOpen && moreBottomItems.length > 0 && (
+          <>
+            <div 
+              className="md:hidden fixed inset-0 bg-black/50 z-10" 
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <div className="md:hidden fixed bottom-16 left-0 right-0 bg-white z-20 rounded-t-2xl shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-5">
+              <div className="p-4 grid grid-cols-4 gap-4">
+                {moreBottomItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setView(item.id); setIsMobileMenuOpen(false); }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl transition-colors ${
+                      currentView === item.id ? 'bg-brand-50 text-brand-600' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {React.cloneElement(item.icon as React.ReactElement<any>, { size: 24 })}
+                    <span className="text-[10px] font-bold mt-1 text-center">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+           {mainBottomItems.map(item => (
              <button 
                key={item.id}
-               onClick={() => setView(item.id)}
-               className={`flex flex-col items-center justify-center min-w-[70px] h-full space-y-1 active:bg-slate-50 ${
+               onClick={() => { setView(item.id); setIsMobileMenuOpen(false); }}
+               className={`flex flex-col items-center justify-center flex-1 h-full space-y-1 active:bg-slate-50 ${
                  currentView === item.id ? (userRole === 'ADMIN' ? 'text-brand-600' : 'text-orange-600') : 'text-slate-400'
                }`}
              >
-               {/* Fix: cast to React.ReactElement<any> to allow 'size' prop when cloning Lucide icons */}
                {React.cloneElement(item.icon as React.ReactElement<any>, { size: 20 })}
                <span className="text-[10px] font-medium">{item.label}</span>
              </button>
            ))}
+           {moreBottomItems.length > 0 && (
+             <button 
+               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+               className={`flex flex-col items-center justify-center flex-1 h-full space-y-1 active:bg-slate-50 ${
+                 isMobileMenuOpen ? 'text-brand-600' : 'text-slate-400'
+               }`}
+             >
+               <Menu size={20} />
+               <span className="text-[10px] font-medium">Más</span>
+             </button>
+           )}
         </nav>
       </main>
     </div>

@@ -317,7 +317,8 @@ const Finance: React.FC<FinanceProps> = ({
                 <h3 className="font-bold text-slate-800">Movimientos de Caja</h3>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm min-w-[600px]">
                     <thead className="bg-white text-slate-500 font-medium sticky top-0 z-10 border-b border-slate-100">
                         <tr>
                             <th className="px-4 py-2">Fecha</th>
@@ -346,6 +347,7 @@ const Finance: React.FC<FinanceProps> = ({
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
 
@@ -356,7 +358,8 @@ const Finance: React.FC<FinanceProps> = ({
                 <h3 className="font-bold text-slate-800">Historial Transferencias</h3>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm min-w-[600px]">
                     <thead className="bg-white text-slate-500 font-medium sticky top-0 z-10 border-b border-slate-100">
                         <tr>
                             <th className="px-4 py-2">Fecha</th>
@@ -384,6 +387,7 @@ const Finance: React.FC<FinanceProps> = ({
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
       </div>
@@ -720,7 +724,8 @@ const Finance: React.FC<FinanceProps> = ({
 
                {/* Transaction List */}
                <div className="flex-1 overflow-y-auto p-0">
-                  <table className="w-full text-left text-sm">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-sm min-w-[600px]">
                      <thead className="bg-slate-50 text-slate-500 font-bold sticky top-0 z-10 shadow-sm">
                         <tr>
                            <th className="px-4 py-3 font-medium">Fecha</th>
@@ -762,6 +767,7 @@ const Finance: React.FC<FinanceProps> = ({
                         )}
                      </tbody>
                   </table>
+                  </div>
                </div>
             </div>
          </div>
