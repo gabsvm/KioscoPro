@@ -403,10 +403,10 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                     key={item.id}
                     onClick={() => addComboToCart(item as Combo)}
                     className="bg-indigo-600 p-3 rounded-xl border border-indigo-700 shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-95 flex flex-col relative"
-                    style={{ minHeight: '110px' }}
+                    style={{ minHeight: '130px' }}
                   >
                     <div className="absolute top-2 right-2 text-indigo-200"><Layers size={12} /></div>
-                    <h4 className="font-bold text-xs md:text-sm text-white line-clamp-2 leading-snug pr-4" title={item.name}>{item.name}</h4>
+                    <h4 className="font-bold text-xs md:text-sm text-white line-clamp-2 md:line-clamp-3 leading-snug pr-4" title={item.name}>{item.name}</h4>
                     <p className="text-[9px] text-indigo-200 mt-0.5 uppercase font-bold">Combo</p>
                     <div className="mt-auto pt-2 border-t border-indigo-500/30">
                       <span className="font-black text-sm text-white">{formatCurrency(item.price)}</span>
@@ -421,7 +421,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
                     key={product.id}
                     onClick={() => addToCart(product)}
                     className={`bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-300 cursor-pointer transition-all active:scale-95 flex flex-col relative ${product.isFavorite ? 'ring-1 ring-yellow-200' : ''}`}
-                    style={{ minHeight: '110px' }}
+                    style={{ minHeight: '130px' }}
                   >
                     {/* Absolutely positioned badges */}
                     {product.isFavorite && <div className="absolute top-1.5 left-1.5 text-yellow-400"><Star size={11} fill="currentColor" /></div>}
@@ -429,7 +429,7 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
 
                     {/* Name & Category - always at top, with top padding for badges */}
                     <div className="mt-3">
-                      <h4 className="font-semibold text-xs md:text-sm text-slate-800 leading-snug line-clamp-2" title={product.name}>{product.name}</h4>
+                      <h4 className="font-semibold text-xs md:text-sm text-slate-800 leading-snug line-clamp-2 md:line-clamp-3" title={product.name}>{product.name}</h4>
                       <p className="text-[9px] md:text-[10px] text-slate-400 mt-0.5 truncate">{product.category}</p>
                     </div>
 
@@ -489,7 +489,14 @@ const POS: React.FC<POSProps> = ({ products, paymentMethods, customers, promotio
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          <div className={`flex-1 overflow-y-auto p-4 custom-scrollbar ${cart.length === 0 ? 'flex flex-col' : 'space-y-3'}`}>
+            {cart.length === 0 && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-300">
+                <ShoppingCart className="w-16 h-16 mb-4 opacity-30" />
+                <p className="font-bold text-slate-400">El ticket está vacío</p>
+                <p className="text-sm text-slate-400 mt-1">Tocá un producto para agregarlo</p>
+              </div>
+            )}
             {cart.map(item => {
               const promo = getApplicablePromotion(item);
               const total = calculateItemTotal(item);

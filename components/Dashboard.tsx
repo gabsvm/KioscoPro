@@ -64,13 +64,13 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Stats Grid */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-1'} gap-6`}>
+      <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-2'} gap-4 lg:gap-6`}>
         {/* Sales Today - Visible to everyone */}
-        <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+        <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col min-w-0">
           <div className="flex justify-between items-start gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-slate-500 truncate">Ventas Hoy</p>
-              <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyRevenue)}</h3>
+              <h3 className="text-xl font-bold text-slate-800 mt-2 truncate">{formatCurrency(dailyRevenue)}</h3>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 shrink-0">
               <DollarSign size={20} />
@@ -82,11 +82,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
         {/* Admin Only Cards */}
         {isAdmin && (
           <>
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col min-w-0">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-500 truncate">Ganancia Hoy</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(dailyProfit)}</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mt-2 truncate">{formatCurrency(dailyProfit)}</h3>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
                   <TrendingUp size={20} />
@@ -95,11 +95,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
               <p className="text-xs text-slate-400 mt-2 truncate">Margen: {dailyRevenue ? ((dailyProfit/dailyRevenue)*100).toFixed(1) : 0}%</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col min-w-0">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-500 truncate">Valor Inventario</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{formatCurrency(totalStockValue)}</h3>
+                  <h3 className="text-lg leading-tight font-bold text-slate-800 mt-2 truncate">{formatCurrency(totalStockValue)}</h3>
                 </div>
                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600 shrink-0">
                   <Package size={20} />
@@ -108,11 +108,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
                <p className="text-xs text-slate-400 mt-2 truncate">Costo de reposición</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col min-w-0">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-500 truncate">Productos</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">{products.length}</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mt-2 truncate">{products.length}</h3>
                 </div>
                 <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0">
                   <ShoppingBag size={20} />
@@ -121,11 +121,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sales, products, paymentMethods, 
               <p className="text-xs text-slate-400 mt-2 truncate">Total en catálogo</p>
             </div>
 
-            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col min-w-0">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-500 truncate">Saldo Cajas</p>
-                  <h3 className="text-xl lg:text-2xl font-bold text-slate-800 mt-2 break-words">
+                  <h3 className="text-xl font-bold text-slate-800 mt-2 truncate">
                     {formatCurrency(paymentMethods.reduce((acc, m) => acc + m.balance, 0))}
                   </h3>
                 </div>
